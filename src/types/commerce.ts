@@ -87,6 +87,18 @@ export interface LookbookPlate {
   hotspots: LookbookHotspot[];
 }
 
+export type FoilFinishId =
+  | 'gold-24k'
+  | 'blind-deboss'
+  | 'silver-leaf'
+  | 'terracotta-ink';
+
+export interface MonogramConfig {
+  enabled: boolean;
+  text: string;
+  foil: FoilFinishId;
+}
+
 export interface CartItem {
   key: string;
   productId: string;
@@ -94,6 +106,11 @@ export interface CartItem {
   colorwayId: string;
   quantity: number;
   customMeta?: string;
+  monogram?: {
+    text: string;
+    foil: FoilFinishId;
+  };
+  stylistBundleId?: string;
 }
 
 export type PromoCodeId = 'VERA15' | 'ATELIER50' | 'VIP200';
@@ -122,7 +139,9 @@ export interface PromoEvaluationResult {
 export interface CartTotals {
   merchandiseSubtotalUsd: number;
   lookbookDiscountUsd: number;
+  stylistDiscountUsd: number;
   matchedLookbooks: { lookbookId: string; title: LocalizedText; count: number; savingsUsd: number }[];
+  matchedStylistBundles: { bundleId: string; savingsUsd: number }[];
   postBundleSubtotalUsd: number;
   promoDiscountUsd: number;
   giftWrapUsd: number;
@@ -178,6 +197,10 @@ export interface OrderRecord {
     quantity: number;
     unitPriceUsd: number;
     customMeta?: string;
+    monogram?: {
+      text: string;
+      foil: FoilFinishId;
+    };
   }[];
   giftWrap: boolean;
   giftNote: string;
@@ -185,7 +208,25 @@ export interface OrderRecord {
   totals: CartTotals;
 }
 
+export type EyewearCameraPreset = 'runway' | 'hinge' | 'optics' | 'exploded';
+export type StudioLightingMood = 'morning' | 'golden' | 'gallery' | 'nocturne';
+
 export interface HeroEyewearConfig {
   frameFinishId: 'raw-titanium' | 'warm-gold' | 'matte-noir';
   lensTintId: 'smoked-amber' | 'obsidian-polarized' | 'olive-mineral' | 'rose-quartz';
+  cameraPreset: EyewearCameraPreset;
+  lightingMood: StudioLightingMood;
 }
+
+export type StylistOccasion =
+  | 'gallery-opening'
+  | 'tokyo-architecture'
+  | 'minimalist-weekend'
+  | 'nocturne-salon';
+
+export type StylistPalette =
+  | 'alabaster-sand'
+  | 'obsidian-monochrome'
+  | 'terracotta-warmth';
+
+export type StylistBudgetTier = 'essential' | 'signature' | 'collector';

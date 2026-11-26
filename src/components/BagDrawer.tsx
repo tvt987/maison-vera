@@ -14,6 +14,7 @@ import { PRODUCT_BY_ID } from '../data/catalog';
 import { t } from '../data/i18n';
 import { GIFT_WRAP_FEE_USD } from '../engines/cartEngine';
 import { formatMoney } from '../engines/currency';
+import { formatMonogramLine } from '../engines/monogramEngine';
 import type { PromoCodeId } from '../types/commerce';
 import { ProductArt } from './ProductArt';
 
@@ -148,6 +149,28 @@ export const BagDrawer: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-5">
+              {/* Matched Stylist Wardrobe Bundle (-12%) Alert */}
+              {cartTotals.matchedStylistBundles.length > 0 && (
+                <div
+                  data-testid="bag-stylist-bundle-badge"
+                  className="border border-[var(--olive)]/45 bg-[var(--olive)]/12 px-4 py-3 text-xs text-[var(--olive)]"
+                >
+                  {cartTotals.matchedStylistBundles.map((match) => (
+                    <div
+                      key={match.bundleId}
+                      className="flex items-center justify-between gap-2"
+                    >
+                      <span className="font-medium">
+                        {copy.bagStylistDiscount}
+                      </span>
+                      <span className="font-mono-tech">
+                        -{formatMoney(match.savingsUsd, currency)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {/* Matched Lookbook Bundle Alert */}
               {cartTotals.matchedLookbooks.length > 0 && (
                 <div
@@ -203,6 +226,14 @@ export const BagDrawer: React.FC = () => {
                           <p className="truncate font-mono-tech text-[10px] text-[var(--ink-muted)]">
                             {item.customMeta ?? cw.name[locale]}
                           </p>
+                          {item.monogram && (
+                            <p
+                              data-testid="bag-item-monogram"
+                              className="mt-1 inline-block border border-[var(--accent)]/40 bg-[var(--accent)]/10 px-1.5 py-0.5 font-mono-tech text-[9.5px] text-[var(--accent)]"
+                            >
+                              {formatMonogramLine(item.monogram, locale)}
+                            </p>
+                          )}
                         </div>
 
                         <div className="mt-2.5 flex items-center justify-between">
@@ -377,6 +408,15 @@ export const BagDrawer: React.FC = () => {
                   {formatMoney(cartTotals.merchandiseSubtotalUsd, currency)}
                 </span>
               </div>
+
+              {cartTotals.stylistDiscountUsd > 0 && (
+                <div className="flex justify-between text-[var(--olive)]">
+                  <span>{copy.bagStylistDiscount}</span>
+                  <span className="font-mono-tech">
+                    -{formatMoney(cartTotals.stylistDiscountUsd, currency)}
+                  </span>
+                </div>
+              )}
 
               {cartTotals.lookbookDiscountUsd > 0 && (
                 <div className="flex justify-between text-[var(--olive)]">

@@ -5,11 +5,15 @@ import {
   Moon,
   Search,
   ShoppingBag,
+  Sparkles,
   Sun,
+  Volume2,
+  VolumeX,
   X,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { t } from '../data/i18n';
+import { atelierAudio } from '../engines/atelierAudio';
 
 export const Navbar: React.FC = () => {
   const {
@@ -19,10 +23,13 @@ export const Navbar: React.FC = () => {
     toggleCurrency,
     theme,
     toggleThemeWithWipe,
+    audioEnabled,
+    toggleAudio,
     cartTotals,
     wishlist,
     setBagOpen,
     setWishlistOpen,
+    setStylistOpen,
     setSearchOpen,
   } = useStore();
 
@@ -45,17 +52,17 @@ export const Navbar: React.FC = () => {
           <span>{copy.brandSub}</span>
           <span className="hidden md:inline">
             {locale === 'en'
-              ? 'COMPLIMENTARY DHL EXPRESS ON ORDERS $350+ · CURATED LOOKS -10%'
-              : 'MIỄN PHÍ DHL EXPRESS ĐƠN TỪ $350 · TRỌN BỘ LOOKBOOK GIẢM 10%'}
+              ? 'COMPLIMENTARY DHL EXPRESS $350+ · BESPOKE FOIL MONOGRAM · AI STYLIST -12%'
+              : 'MIỄN PHÍ DHL EXPRESS $350+ · ÉP KIM MONOGRAM MIỄN PHÍ · STYLIST AI -12%'}
           </span>
-          <span className="text-[var(--accent)]">AW26 · ARCHIVE</span>
+          <span className="text-[var(--accent)]">AW26 · V2.0</span>
         </div>
       </div>
 
       {/* Main Navigation Bar */}
-      <div className="mx-auto flex h-16 max-w-[1440px] items-center justify-between gap-3 px-4 sm:h-[72px] sm:px-8">
+      <div className="mx-auto flex h-16 max-w-[1440px] items-center justify-between gap-2 px-4 sm:h-[72px] sm:px-8">
         {/* Left Navigation Anchors */}
-        <nav className="hidden items-center gap-7 lg:flex" aria-label="Primary">
+        <nav className="hidden items-center gap-6 xl:flex" aria-label="Primary">
           <a
             href="#lookbook"
             className="text-xs font-medium uppercase tracking-[0.18em] text-[var(--ink-muted)] transition-colors hover:text-[var(--ink)]"
@@ -69,18 +76,30 @@ export const Navbar: React.FC = () => {
             {copy.navCatalog}
           </a>
           <a
-            href="#atelier"
+            href="#craft"
             className="text-xs font-medium uppercase tracking-[0.18em] text-[var(--ink-muted)] transition-colors hover:text-[var(--ink)]"
           >
-            {copy.navAtelier}
+            {copy.navCraft}
           </a>
+          <button
+            type="button"
+            data-testid="nav-stylist-btn"
+            onClick={() => {
+              atelierAudio.playDetent();
+              setStylistOpen(true);
+            }}
+            className="inline-flex items-center gap-1.5 border border-[var(--accent)]/60 bg-[var(--surface)] px-2.5 py-1 text-[10.5px] font-medium uppercase tracking-[0.16em] text-[var(--accent)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--accent-contrast)]"
+          >
+            <Sparkles size={12} strokeWidth={1.6} />
+            {copy.navStylist}
+          </button>
         </nav>
 
         {/* Mobile Hamburger */}
         <button
           type="button"
           onClick={() => setMobileMenuOpen((prev) => !prev)}
-          className="inline-flex h-9 w-9 items-center justify-center border border-[var(--hairline)] text-[var(--ink)] lg:hidden"
+          className="inline-flex h-9 w-9 items-center justify-center border border-[var(--hairline)] text-[var(--ink)] xl:hidden"
           aria-label="Toggle navigation menu"
         >
           {mobileMenuOpen ? <X size={16} strokeWidth={1.5} /> : <Menu size={16} strokeWidth={1.5} />}
@@ -91,13 +110,13 @@ export const Navbar: React.FC = () => {
           href="#top"
           className="flex flex-col items-center text-center leading-none"
         >
-          <span className="font-serif-editorial text-2xl font-medium tracking-[0.26em] text-[var(--ink)] sm:text-[28px]">
+          <span className="font-serif-editorial text-xl font-medium tracking-[0.24em] text-[var(--ink)] sm:text-[26px]">
             MAISON VÉRA
           </span>
         </a>
 
         {/* Right Controls */}
-        <div className="flex items-center gap-1.5 sm:gap-2.5">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           {/* CMD+K Global Search */}
           <button
             type="button"
@@ -110,9 +129,29 @@ export const Navbar: React.FC = () => {
             <span className="hidden text-[11px] uppercase tracking-[0.14em] md:inline">
               {copy.searchShortcut}
             </span>
-            <kbd className="hidden rounded border border-[var(--hairline)] px-1.5 py-0.5 font-mono-tech text-[9px] text-[var(--ink-muted)] xl:inline">
+            <kbd className="hidden rounded border border-[var(--hairline)] px-1.5 py-0.5 font-mono-tech text-[9px] text-[var(--ink-muted)] 2xl:inline">
               CMD+K
             </kbd>
+          </button>
+
+          {/* Tactile Atelier Audio Toggle (Muted by default) */}
+          <button
+            type="button"
+            onClick={toggleAudio}
+            data-testid="audio-toggle"
+            className={`hidden h-9 w-9 items-center justify-center border transition-colors sm:inline-flex ${
+              audioEnabled
+                ? 'border-[var(--accent)] bg-[var(--accent)]/12 text-[var(--accent)]'
+                : 'border-[var(--hairline)] bg-[var(--surface)] text-[var(--ink-muted)] hover:text-[var(--ink)]'
+            }`}
+            aria-label={audioEnabled ? copy.audioOn : copy.audioOff}
+            title={audioEnabled ? copy.audioOn : copy.audioOff}
+          >
+            {audioEnabled ? (
+              <Volume2 size={14} strokeWidth={1.5} />
+            ) : (
+              <VolumeX size={14} strokeWidth={1.5} />
+            )}
           </button>
 
           {/* Currency Switcher (USD <-> VND) */}
@@ -120,7 +159,7 @@ export const Navbar: React.FC = () => {
             type="button"
             onClick={toggleCurrency}
             data-testid="currency-toggle"
-            className="inline-flex h-9 items-center border border-[var(--hairline)] bg-[var(--surface)] px-2.5 font-mono-tech text-[11px] tracking-[0.12em] text-[var(--ink)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+            className="inline-flex h-9 items-center border border-[var(--hairline)] bg-[var(--surface)] px-2 font-mono-tech text-[11px] tracking-[0.1em] text-[var(--ink)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)] sm:px-2.5"
             title="Switch currency USD / VND"
           >
             {currency === 'USD' ? 'USD $' : 'VND ₫'}
@@ -131,7 +170,7 @@ export const Navbar: React.FC = () => {
             type="button"
             onClick={toggleLocale}
             data-testid="locale-toggle"
-            className="inline-flex h-9 items-center border border-[var(--hairline)] bg-[var(--surface)] px-2.5 font-mono-tech text-[11px] uppercase tracking-[0.12em] text-[var(--ink)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+            className="inline-flex h-9 items-center border border-[var(--hairline)] bg-[var(--surface)] px-2 font-mono-tech text-[11px] uppercase tracking-[0.1em] text-[var(--ink)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)] sm:px-2.5"
             title="Switch language EN / VI"
           >
             {locale.toUpperCase()}
@@ -174,7 +213,7 @@ export const Navbar: React.FC = () => {
             type="button"
             onClick={() => setBagOpen(true)}
             data-testid="bag-btn"
-            className="relative inline-flex h-9 items-center gap-2 border border-[var(--ink)] bg-[var(--ink)] px-3 text-[var(--surface)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--accent)] hover:text-[var(--accent-contrast)]"
+            className="relative inline-flex h-9 items-center gap-1.5 border border-[var(--ink)] bg-[var(--ink)] px-2.5 text-[var(--surface)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--accent)] hover:text-[var(--accent-contrast)] sm:px-3"
             aria-label={copy.bag}
           >
             <ShoppingBag size={14} strokeWidth={1.5} />
@@ -193,7 +232,7 @@ export const Navbar: React.FC = () => {
 
       {/* Mobile Drawer Navigation */}
       {mobileMenuOpen && (
-        <div className="border-t border-[var(--hairline)] bg-[var(--surface)] px-6 py-4 lg:hidden">
+        <div className="border-t border-[var(--hairline)] bg-[var(--surface)] px-6 py-4 xl:hidden">
           <div className="flex flex-col gap-3">
             <a
               href="#lookbook"
@@ -210,12 +249,23 @@ export const Navbar: React.FC = () => {
               {copy.navCatalog}
             </a>
             <a
-              href="#atelier"
+              href="#craft"
               onClick={() => setMobileMenuOpen(false)}
               className="py-1 text-xs uppercase tracking-[0.18em] text-[var(--ink)]"
             >
-              {copy.navAtelier}
+              {copy.navCraft}
             </a>
+            <button
+              type="button"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                setStylistOpen(true);
+              }}
+              className="inline-flex w-fit items-center gap-2 border border-[var(--accent)] px-3 py-1.5 text-xs uppercase tracking-[0.16em] text-[var(--accent)]"
+            >
+              <Sparkles size={13} strokeWidth={1.5} />
+              {copy.navStylist}
+            </button>
           </div>
         </div>
       )}

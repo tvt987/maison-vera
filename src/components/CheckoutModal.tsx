@@ -20,6 +20,7 @@ import {
   type DeliveryFormValues,
 } from '../engines/checkoutSchema';
 import { formatMoney } from '../engines/currency';
+import { formatMonogramLine } from '../engines/monogramEngine';
 import type { OrderRecord, PaymentMethod } from '../types/commerce';
 
 /**
@@ -240,6 +241,7 @@ export const CheckoutModal: React.FC = () => {
             quantity: item.quantity,
             unitPriceUsd: prod.priceUsd,
             customMeta: item.customMeta,
+            monogram: item.monogram,
           };
         })
         .filter((x): x is NonNullable<typeof x> => x !== null),
@@ -783,6 +785,14 @@ export const CheckoutModal: React.FC = () => {
                         <p className="font-mono-tech text-[10px] text-[var(--ink-muted)]">
                           {item.sku} · {item.size} · {item.customMeta ?? item.colorwayName[locale]}
                         </p>
+                        {item.monogram && (
+                          <p
+                            data-testid="receipt-item-monogram"
+                            className="mt-0.5 font-mono-tech text-[9.5px] text-[var(--accent)]"
+                          >
+                            {formatMonogramLine(item.monogram, locale)}
+                          </p>
+                        )}
                       </div>
                       <span className="font-mono-tech text-[var(--ink)]">
                         {formatMoney(item.unitPriceUsd * item.quantity, currency)}
@@ -805,6 +815,14 @@ export const CheckoutModal: React.FC = () => {
                         {formatMoney(confirmedOrder.totals.merchandiseSubtotalUsd, currency)}
                       </span>
                     </div>
+                    {confirmedOrder.totals.stylistDiscountUsd > 0 && (
+                      <div className="flex justify-between text-[var(--olive)]">
+                        <span>{copy.bagStylistDiscount}</span>
+                        <span className="font-mono-tech">
+                          -{formatMoney(confirmedOrder.totals.stylistDiscountUsd, currency)}
+                        </span>
+                      </div>
+                    )}
                     {confirmedOrder.totals.lookbookDiscountUsd > 0 && (
                       <div className="flex justify-between text-[var(--olive)]">
                         <span>{copy.bagLookbookDiscount}</span>

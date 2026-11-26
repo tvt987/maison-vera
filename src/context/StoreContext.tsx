@@ -7,7 +7,9 @@ import React, {
   useState,
 } from 'react';
 import { CATALOG, HERO_FRAME_FINISHES, HERO_LENS_TINTS, PRODUCT_BY_ID } from '../data/catalog';
+import { t } from '../data/i18n';
 import { LOOKBOOKS } from '../data/lookbooks';
+import { atelierAudio } from '../engines/atelierAudio';
 import {
   calculateCartTotals,
   evaluatePromoCode,
@@ -15,12 +17,16 @@ import {
   updateCartItemQty,
   upsertCartItem,
 } from '../engines/cartEngine';
+import { toggleCompareList } from '../engines/compareEngine';
+import { resolveActiveMonogram } from '../engines/monogramEngine';
 import type {
   CartItem,
   CartTotals,
   Currency,
+  FoilFinishId,
   HeroEyewearConfig,
   Locale,
+  MonogramConfig,
   OrderRecord,
   ProductSize,
   PromoCodeId,
@@ -44,8 +50,12 @@ interface StoreContextValue {
   toggleCurrency: () => void;
   theme: ThemeMode;
   toggleThemeWithWipe: (origin?: { x: number; y: number }) => void;
+  audioEnabled: boolean;
+  toggleAudio: () => void;
   heroConfig: HeroEyewearConfig;
   setHeroConfig: React.Dispatch<React.SetStateAction<HeroEyewearConfig>>;
+  heroMonogram: MonogramConfig;
+  setHeroMonogram: React.Dispatch<React.SetStateAction<MonogramConfig>>;
   addHeroEditionToBag: () => void;
   cart: CartItem[];
   cartTotals: CartTotals;
@@ -55,10 +65,16 @@ interface StoreContextValue {
     colorwayId: string;
     quantity?: number;
     customMeta?: string;
+    monogram?: { text: string; foil: FoilFinishId };
+    stylistBundleId?: string;
     openDrawer?: boolean;
   }) => void;
   addLookbookBundleToBag: (
     lookbookId: string,
+    selections: { productId: string; size: ProductSize; colorwayId: string }[]
+  ) => void;
+  addStylistWardrobeToBag: (
+    bundleId: string,
     selections: { productId: string; size: ProductSize; colorwayId: string }[]
   ) => void;
   setBagItemQty: (key: string, qty: number) => void;
@@ -67,6 +83,11 @@ interface StoreContextValue {
   wishlist: string[];
   toggleWishlist: (productId: string) => void;
   isWishlisted: (productId: string) => boolean;
+  compareIds: string[];
+  toggleCompare: (productId: string) => void;
+  clearCompare: () => void;
+  compareModalOpen: boolean;
+  setCompareModalOpen: (open: boolean) => void;
   recentlyViewed: string[];
   recordViewed: (productId: string) => void;
   activePromoCode: PromoCodeId | null;
@@ -80,6 +101,8 @@ interface StoreContextValue {
   setBagOpen: (open: boolean) => void;
   wishlistOpen: boolean;
   setWishlistOpen: (open: boolean) => void;
+  stylistOpen: boolean;
+  setStylistOpen: (open: boolean) => void;
   searchOpen: boolean;
   setSearchOpen: (open: boolean) => void;
   quickViewProductId: string | null;
@@ -98,10 +121,10 @@ interface StoreContextValue {
 }
 
 const STORAGE_KEYS = {
-  cart: 'maison_vera_v1_cart',
-  wishlist: 'maison_vera_v1_wishlist',
-  recent: 'maison_vera_v1_recent',
-  prefs: 'maison_vera_v1_prefs',
+  cart: 'maison_vera_v2_cart',
+  wishlist: 'maison_vera_v2_wishlist',
+  recent: 'maison_vera_v2_recent',
+  prefs: 'maison_vera_v2_prefs',
 };
 
 function readStorage<T>(key: string, fallback: T): T {
@@ -129,10 +152,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [locale, setLocale] = useState<Locale>(initialPrefs.locale);
   const [currency, setCurrency] = useState<Currency>(initialPrefs.currency);
   const [theme, setTheme] = useState<ThemeMode>(initialPrefs.theme);
+  const [audioEnabled, setAudioEnabled] = useState<boolean>(false);
 
   const [heroConfig, setHeroConfig] = useState<HeroEyewearConfig>({
     frameFinishId: 'raw-titanium',
     lensTintId: 'smoked-amber',
+    cameraPreset: 'runway',
+    lightingMood: 'morning',
+  });
+
+  const [heroMonogram, setHeroMonogram] = useState<MonogramConfig>({
+    enabled: false,
+    text: 'TVT',
+    foil: 'gold-24k',
   });
 
   const [cart, setCart] = useState<CartItem[]>(() =>
@@ -144,6 +176,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [recentlyViewed, setRecentlyViewed] = useState<string[]>(() =>
     readStorage<string[]>(STORAGE_KEYS.recent, ['mv-eye-01', 'mv-out-01', 'mv-lth-01', 'mv-frg-01'])
   );
+  const [compareIds, setCompareIds] = useState<string[]>([]);
+  const [compareModalOpen, setCompareModalOpen] = useState(false);
 
   const [activePromoCode, setActivePromoCode] = useState<PromoCodeId | null>(null);
   const [giftWrap, setGiftWrap] = useState<boolean>(false);
@@ -151,6 +185,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [bagOpen, setBagOpen] = useState(false);
   const [wishlistOpen, setWishlistOpen] = useState(false);
+  const [stylistOpen, setStylistOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [quickViewProductId, setQuickViewProductId] = useState<string | null>(null);
   const [activeLookbookBundleId, setActiveLookbookBundleId] = useState<string | null>(null);
@@ -158,17 +193,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [lastOrder, setLastOrder] = useState<OrderRecord | null>(null);
   const [toasts, setToasts] = useState<ToastNotice[]>([]);
 
-  // Apply theme attribute
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
-  // Persist states
   useEffect(() => {
     try {
       window.localStorage.setItem(STORAGE_KEYS.cart, JSON.stringify(cart));
     } catch {
-      // ignore quota errors
+      // ignore
     }
   }, [cart]);
 
@@ -203,16 +236,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setToasts((prev) => prev.filter((item) => item.id !== id));
   }, []);
 
-  const pushToast = useCallback(
-    (toast: Omit<ToastNotice, 'id'>) => {
-      const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-      setToasts((prev) => [...prev.slice(-2), { ...toast, id }]);
-      window.setTimeout(() => {
-        setToasts((prev) => prev.filter((item) => item.id !== id));
-      }, 3400);
-    },
-    []
-  );
+  const pushToast = useCallback((toast: Omit<ToastNotice, 'id'>) => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    setToasts((prev) => [...prev.slice(-2), { ...toast, id }]);
+    window.setTimeout(() => {
+      setToasts((prev) => prev.filter((item) => item.id !== id));
+    }, 3400);
+  }, []);
 
   const cartTotals = useMemo(
     () => calculateCartTotals(cart, PRODUCT_BY_ID, LOOKBOOKS, activePromoCode, giftWrap),
@@ -220,15 +250,26 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   );
 
   const toggleLocale = useCallback(() => {
+    atelierAudio.playDetent();
     setLocale((prev) => (prev === 'en' ? 'vi' : 'en'));
   }, []);
 
   const toggleCurrency = useCallback(() => {
+    atelierAudio.playDetent();
     setCurrency((prev) => (prev === 'USD' ? 'VND' : 'USD'));
+  }, []);
+
+  const toggleAudio = useCallback(() => {
+    setAudioEnabled((prev) => {
+      const next = !prev;
+      atelierAudio.setEnabled(next);
+      return next;
+    });
   }, []);
 
   const toggleThemeWithWipe = useCallback(
     (origin?: { x: number; y: number }) => {
+      atelierAudio.playShutter();
       const nextTheme: ThemeMode = theme === 'paper' ? 'nocturne' : 'paper';
       const x = origin?.x ?? window.innerWidth - 64;
       const y = origin?.y ?? 36;
@@ -272,20 +313,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             }
           );
         })
-        .catch(() => {
-          // Graceful fallback if animation rejected
-        });
+        .catch(() => {});
     },
     [theme]
   );
 
   const recordViewed = useCallback((productId: string) => {
     if (!PRODUCT_BY_ID[productId]) return;
-    setRecentlyViewed((prev) => [productId, ...prev.filter((id) => id !== productId)].slice(0, 6));
+    setRecentlyViewed((prev) =>
+      [productId, ...prev.filter((id) => id !== productId)].slice(0, 6)
+    );
   }, []);
 
   const openQuickView = useCallback(
     (productId: string) => {
+      atelierAudio.playDetent();
       recordViewed(productId);
       setQuickViewProductId(productId);
     },
@@ -303,11 +345,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       colorwayId: string;
       quantity?: number;
       customMeta?: string;
+      monogram?: { text: string; foil: FoilFinishId };
+      stylistBundleId?: string;
       openDrawer?: boolean;
     }) => {
       const product = PRODUCT_BY_ID[payload.productId];
       if (!product || product.stock <= 0) return;
 
+      atelierAudio.playConfirm();
       setCart((prev) => upsertCartItem(prev, payload, product.stock));
       recordViewed(payload.productId);
 
@@ -316,7 +361,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           locale === 'en'
             ? `Added to Bag — ${product.name.en}`
             : `Đã thêm vào giỏ — ${product.name.vi}`,
-        detail: `${product.sku} · ${payload.size}${payload.customMeta ? ` · ${payload.customMeta}` : ''}`,
+        detail: `${product.sku} · ${payload.size}${payload.monogram ? ` · MONO:${payload.monogram.text}` : ''}`,
         tone: 'accent',
       });
 
@@ -333,15 +378,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       HERO_FRAME_FINISHES[0];
     const lens =
       HERO_LENS_TINTS.find((l) => l.id === heroConfig.lensTintId) ?? HERO_LENS_TINTS[0];
+    const activeMono = resolveActiveMonogram(heroMonogram);
 
     addToBag({
       productId: 'mv-eye-01',
       size: 'OS',
       colorwayId: finish.colorwayId,
       customMeta: `${finish.label[locale]} / ${lens.label[locale]}`,
+      monogram: activeMono,
       openDrawer: true,
     });
-  }, [addToBag, heroConfig, locale]);
+  }, [addToBag, heroConfig, heroMonogram, locale]);
 
   const addLookbookBundleToBag = useCallback(
     (
@@ -349,6 +396,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       selections: { productId: string; size: ProductSize; colorwayId: string }[]
     ) => {
       const look = LOOKBOOKS.find((l) => l.id === lookbookId);
+      atelierAudio.playConfirm();
       setCart((prev) => {
         let next = prev;
         for (const sel of selections) {
@@ -381,7 +429,47 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [locale, pushToast]
   );
 
+  const addStylistWardrobeToBag = useCallback(
+    (
+      bundleId: string,
+      selections: { productId: string; size: ProductSize; colorwayId: string }[]
+    ) => {
+      atelierAudio.playConfirm();
+      setCart((prev) => {
+        let next = prev;
+        for (const sel of selections) {
+          const product = PRODUCT_BY_ID[sel.productId];
+          if (!product || product.stock <= 0) continue;
+          next = upsertCartItem(
+            next,
+            {
+              productId: sel.productId,
+              size: sel.size,
+              colorwayId: sel.colorwayId,
+              quantity: 1,
+              stylistBundleId: bundleId,
+            },
+            product.stock
+          );
+        }
+        return next;
+      });
+      setStylistOpen(false);
+      setBagOpen(true);
+      pushToast({
+        title:
+          locale === 'en'
+            ? 'AI Atelier Styled Wardrobe added (-12% privilege active)'
+            : 'Đã thêm Trọn Bộ Stylist AI (giảm tự động 12%)',
+        detail: locale === 'en' ? '3 tailored specimens paired in bag' : '3 tác phẩm tuyển chọn đã vào giỏ',
+        tone: 'olive',
+      });
+    },
+    [locale, pushToast]
+  );
+
   const setBagItemQty = useCallback((key: string, qty: number) => {
+    atelierAudio.playDetent();
     setCart((prev) => {
       const item = prev.find((c) => c.key === key);
       const maxStock = item ? PRODUCT_BY_ID[item.productId]?.stock ?? 10 : 10;
@@ -390,10 +478,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   const removeBagItem = useCallback((key: string) => {
+    atelierAudio.playDetent();
     setCart((prev) => removeCartItem(prev, key));
   }, []);
 
   const clearBagAfterOrder = useCallback((order: OrderRecord) => {
+    atelierAudio.playConfirm();
     setLastOrder(order);
     setCart([]);
     setActivePromoCode(null);
@@ -405,6 +495,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     (productId: string) => {
       const product = PRODUCT_BY_ID[productId];
       if (!product) return;
+      atelierAudio.playDetent();
       setWishlist((prev) => {
         const exists = prev.includes(productId);
         pushToast({
@@ -428,6 +519,28 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [wishlist]
   );
 
+  const toggleCompare = useCallback(
+    (productId: string) => {
+      atelierAudio.playDetent();
+      setCompareIds((prev) => {
+        const res = toggleCompareList(prev, productId);
+        if (res.status === 'limit-reached') {
+          pushToast({
+            title: t(locale).compareLimitToast,
+            tone: 'accent',
+          });
+        }
+        return res.next;
+      });
+    },
+    [locale, pushToast]
+  );
+
+  const clearCompare = useCallback(() => {
+    setCompareIds([]);
+    setCompareModalOpen(false);
+  }, []);
+
   const applyPromoCode = useCallback(
     (raw: string): PromoEvaluationResult => {
       const result = evaluatePromoCode(
@@ -436,6 +549,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         cartTotals.postBundleSubtotalUsd
       );
       if (result.status === 'APPLIED' && result.code) {
+        atelierAudio.playConfirm();
         setActivePromoCode(result.code);
       }
       return result;
@@ -447,7 +561,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setActivePromoCode(null);
   }, []);
 
-  // Global keyboard shortcuts (CMD+K / Ctrl+K & Escape)
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
@@ -459,6 +572,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setActiveLookbookBundleId(null);
         setBagOpen(false);
         setWishlistOpen(false);
+        setStylistOpen(false);
+        setCompareModalOpen(false);
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -468,13 +583,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const hasActiveOverlay = Boolean(
     bagOpen ||
       wishlistOpen ||
+      stylistOpen ||
       searchOpen ||
       quickViewProductId ||
       activeLookbookBundleId ||
+      compareModalOpen ||
       checkoutOpen
   );
 
-  // Ensure initial catalog integrity
   void CATALOG;
 
   const value: StoreContextValue = {
@@ -486,19 +602,29 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     toggleCurrency,
     theme,
     toggleThemeWithWipe,
+    audioEnabled,
+    toggleAudio,
     heroConfig,
     setHeroConfig,
+    heroMonogram,
+    setHeroMonogram,
     addHeroEditionToBag,
     cart,
     cartTotals,
     addToBag,
     addLookbookBundleToBag,
+    addStylistWardrobeToBag,
     setBagItemQty,
     removeBagItem,
     clearBagAfterOrder,
     wishlist,
     toggleWishlist,
     isWishlisted,
+    compareIds,
+    toggleCompare,
+    clearCompare,
+    compareModalOpen,
+    setCompareModalOpen,
     recentlyViewed,
     recordViewed,
     activePromoCode,
@@ -512,6 +638,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setBagOpen,
     wishlistOpen,
     setWishlistOpen,
+    stylistOpen,
+    setStylistOpen,
     searchOpen,
     setSearchOpen,
     quickViewProductId,

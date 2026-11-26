@@ -16,15 +16,20 @@ export const LookbookArt: React.FC<LookbookArtProps> = ({ artKey }) => {
       <svg viewBox="0 0 600 760" className="h-full w-full object-cover" role="img" aria-label="Look 01 Autumn Architecture">
         <defs>
           <linearGradient id={`bg1-${uid}`} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#ECE6DC" />
-            <stop offset="100%" stopColor="#D7CEC0" />
+            <stop offset="0%" stopColor="#F0EAE0" />
+            <stop offset="100%" stopColor="#CFC4B4" />
           </linearGradient>
+          <radialGradient id={`spot1-${uid}`} cx="50%" cy="28%" r="65%">
+            <stop offset="0%" stopColor="#FFFDF8" stopOpacity="0.45" />
+            <stop offset="100%" stopColor="#111111" stopOpacity="0.16" />
+          </radialGradient>
           <linearGradient id={`trench-${uid}`} x1="0" y1="0" x2="0.8" y2="1">
-            <stop offset="0%" stopColor="#C8B9A2" />
-            <stop offset="100%" stopColor="#9A886F" />
+            <stop offset="0%" stopColor="#CEBFA8" />
+            <stop offset="100%" stopColor="#8F7C63" />
           </linearGradient>
         </defs>
         <rect width="600" height="760" fill={`url(#bg1-${uid})`} />
+        <rect width="600" height="760" fill={`url(#spot1-${uid})`} />
         {/* Brutalist limestone gallery colonnade */}
         <rect x="44" y="42" width="110" height="676" fill="#DDD4C6" />
         <rect x="478" y="42" width="78" height="676" fill="#D0C6B6" />

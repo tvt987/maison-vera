@@ -118,4 +118,32 @@ describe('cart, lookbook bundle, gift wrap & idempotent promo engine', () => {
     expect(withAtelier50.giftWrapUsd).toBe(18);
     expect(withAtelier50.grandTotalUsd).toBe(960 - 50 + 18);
   });
+
+  it('automatically applies -12% Stylist Wardrobe bundle savings without double-stacking Lookbook discount', () => {
+    const bundleId = 'stylist-gallery-opening-alabaster-sand-signature';
+    let items = upsertCartItem([], {
+      productId: 'mv-out-01', // $890
+      size: 'M',
+      colorwayId: 'out01-sand',
+      stylistBundleId: bundleId,
+    });
+    items = upsertCartItem(items, {
+      productId: 'mv-eye-01', // $480
+      size: 'OS',
+      colorwayId: 'eye01-titan',
+      stylistBundleId: bundleId,
+    });
+    items = upsertCartItem(items, {
+      productId: 'mv-lth-01', // $1180
+      size: 'OS',
+      colorwayId: 'lth01-sand',
+      stylistBundleId: bundleId,
+    });
+
+    const totals = calculateCartTotals(items, PRODUCT_BY_ID, LOOKBOOKS, null, false);
+    expect(totals.merchandiseSubtotalUsd).toBe(2550);
+    expect(totals.stylistDiscountUsd).toBe(306);
+    expect(totals.lookbookDiscountUsd).toBe(0);
+    expect(totals.grandTotalUsd).toBe(2244);
+  });
 });

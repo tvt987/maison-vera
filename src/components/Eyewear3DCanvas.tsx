@@ -2,13 +2,116 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { HERO_FRAME_FINISHES, HERO_LENS_TINTS } from '../data/catalog';
-import type { HeroEyewearConfig, ThemeMode } from '../types/commerce';
+import type {
+  EyewearCameraPreset,
+  HeroEyewearConfig,
+  Locale,
+  StudioLightingMood,
+  ThemeMode,
+} from '../types/commerce';
 
 interface Eyewear3DCanvasProps {
   config: HeroEyewearConfig;
   theme: ThemeMode;
+  locale: Locale;
   resetSignal: number;
+  paused?: boolean;
 }
+
+const CAMERA_PRESETS: Record<
+  EyewearCameraPreset,
+  {
+    camPos: [number, number, number];
+    lookAt: [number, number, number];
+    rotY: number;
+    rotX: number;
+    exploded: number;
+  }
+> = {
+  runway: {
+    camPos: [0, 0.52, 8.6],
+    lookAt: [0, -0.05, 0],
+    rotY: -0.46,
+    rotX: 0.16,
+    exploded: 0,
+  },
+  hinge: {
+    camPos: [2.85, 0.58, 3.85],
+    lookAt: [1.82, 0.34, 0.58],
+    rotY: -0.92,
+    rotX: 0.1,
+    exploded: 0,
+  },
+  optics: {
+    camPos: [-0.8, 0.35, 5.45],
+    lookAt: [0.1, 0.2, 0.85],
+    rotY: 0.24,
+    rotX: 0.08,
+    exploded: 0,
+  },
+  exploded: {
+    camPos: [0.1, 0.92, 11.2],
+    lookAt: [0, 0.14, 0.1],
+    rotY: -0.5,
+    rotX: 0.2,
+    exploded: 1,
+  },
+};
+
+const LIGHTING_MOODS: Record<
+  StudioLightingMood,
+  {
+    keyColor: string;
+    keyIntensity: number;
+    rimColor: string;
+    rimIntensity: number;
+    fillSky: string;
+    fillGround: string;
+    exposure: number;
+    causticOpacity: number;
+  }
+> = {
+  morning: {
+    keyColor: '#FFF9F0',
+    keyIntensity: 2.35,
+    rimColor: '#D6C4A4',
+    rimIntensity: 1.4,
+    fillSky: '#F6F3ED',
+    fillGround: '#4A433B',
+    exposure: 1.18,
+    causticOpacity: 0.42,
+  },
+  golden: {
+    keyColor: '#FFCE96',
+    keyIntensity: 2.75,
+    rimColor: '#D46E3C',
+    rimIntensity: 1.85,
+    fillSky: '#FBE5C8',
+    fillGround: '#3E271A',
+    exposure: 1.24,
+    causticOpacity: 0.58,
+  },
+  gallery: {
+    keyColor: '#FFFFFF',
+    keyIntensity: 3.1,
+    rimColor: '#B8C4D4',
+    rimIntensity: 1.6,
+    fillSky: '#E8ECF2',
+    fillGround: '#1E2026',
+    exposure: 1.12,
+    causticOpacity: 0.36,
+  },
+  nocturne: {
+    keyColor: '#D4B483',
+    keyIntensity: 2.1,
+    rimColor: '#5DA6B8',
+    rimIntensity: 2.35,
+    fillSky: '#242A36',
+    fillGround: '#0B0B0D',
+    exposure: 1.08,
+    causticOpacity: 0.65,
+  },
+};
 
 function createBrushedTitaniumTexture(): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
@@ -19,7 +122,7 @@ function createBrushedTitaniumTexture(): THREE.CanvasTexture {
     ctx.fillStyle = '#808080';
     ctx.fillRect(0, 0, 256, 256);
     for (let y = 0; y < 256; y += 1) {
-      const shade = 112 + Math.floor(Math.sin(y * 1.9) * 14 + (Math.random() - 0.5) * 28);
+      const shade = 110 + Math.floor(Math.sin(y * 1.9) * 14 + (Math.random() - 0.5) * 28);
       ctx.fillStyle = `rgb(${shade},${shade},${shade})`;
       ctx.fillRect(0, y, 256, 1);
     }
@@ -31,31 +134,58 @@ function createBrushedTitaniumTexture(): THREE.CanvasTexture {
   return tex;
 }
 
-function createShadowDiscTexture(isDark: boolean): THREE.CanvasTexture {
+function createTravertineTexture(isDark: boolean): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    ctx.fillStyle = isDark ? '#242220' : '#DFD7C8';
+    ctx.fillRect(0, 0, 512, 256);
+    for (let y = 0; y < 256; y += 2) {
+      const wave = Math.sin(y * 0.14) * 10 + Math.cos(y * 0.42) * 5;
+      ctx.fillStyle = isDark
+        ? `rgba(212, 180, 131, ${0.03 + Math.abs(wave) * 0.002})`
+        : `rgba(110, 96, 78, ${0.04 + Math.abs(wave) * 0.003})`;
+      ctx.fillRect(0, y, 512, 2);
+    }
+    // Subtle mineral pores
+    for (let i = 0; i < 180; i++) {
+      const x = Math.random() * 512;
+      const y = Math.random() * 256;
+      const w = 4 + Math.random() * 18;
+      ctx.fillStyle = isDark ? 'rgba(0,0,0,0.22)' : 'rgba(90,78,62,0.12)';
+      ctx.fillRect(x, y, w, 1.5);
+    }
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
+function createCausticGlowTexture(hexColor: string): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
   canvas.width = 256;
   canvas.height = 256;
   const ctx = canvas.getContext('2d');
   if (ctx) {
-    const grad = ctx.createRadialGradient(128, 128, 12, 128, 128, 122);
-    if (isDark) {
-      grad.addColorStop(0, 'rgba(0, 0, 0, 0.52)');
-      grad.addColorStop(0.55, 'rgba(0, 0, 0, 0.2)');
-      grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-    } else {
-      grad.addColorStop(0, 'rgba(26, 20, 14, 0.24)');
-      grad.addColorStop(0.55, 'rgba(26, 20, 14, 0.08)');
-      grad.addColorStop(1, 'rgba(26, 20, 14, 0)');
-    }
+    const col = new THREE.Color(hexColor);
+    const r = Math.round(col.r * 255);
+    const g = Math.round(col.g * 255);
+    const b = Math.round(col.b * 255);
+
+    const grad = ctx.createRadialGradient(128, 128, 14, 128, 128, 122);
+    grad.addColorStop(0, `rgba(${r},${g},${b},0.48)`);
+    grad.addColorStop(0.42, `rgba(${r},${g},${b},0.22)`);
+    grad.addColorStop(0.7, `rgba(17,17,17,0.12)`);
+    grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, 256, 256);
   }
   return new THREE.CanvasTexture(canvas);
 }
 
-/**
- * Creates an architectural octagonal-crown rim shape with inner cutout hole
- */
 function buildRimShape(outerScale = 1): THREE.Shape {
   const s = outerScale;
   const shape = new THREE.Shape();
@@ -102,51 +232,90 @@ function buildLensShape(): THREE.Shape {
 
 function buildTempleArmShape(): THREE.Shape {
   const arm = new THREE.Shape();
-  // Side profile extending along +X (will be rotated to -Z depth)
-  arm.moveTo(0, 0.13);
-  arm.lineTo(2.45, 0.085);
-  arm.quadraticCurveTo(2.85, 0.06, 3.05, -0.18);
-  arm.lineTo(3.26, -0.54);
-  arm.quadraticCurveTo(3.32, -0.64, 3.16, -0.68);
-  arm.lineTo(2.96, -0.58);
-  arm.lineTo(2.74, -0.22);
-  arm.quadraticCurveTo(2.6, -0.06, 2.35, -0.05);
-  arm.lineTo(0, -0.11);
+  arm.moveTo(0, 0.125);
+  arm.lineTo(2.15, 0.085);
+  arm.lineTo(2.15, -0.055);
+  arm.lineTo(0, -0.105);
   arm.closePath();
   return arm;
+}
+
+function buildEarTipSleeveShape(): THREE.Shape {
+  const tip = new THREE.Shape();
+  tip.moveTo(2.1, 0.095);
+  tip.lineTo(2.58, 0.075);
+  tip.quadraticCurveTo(2.94, 0.04, 3.16, -0.24);
+  tip.lineTo(3.36, -0.62);
+  tip.quadraticCurveTo(3.4, -0.74, 3.22, -0.78);
+  tip.lineTo(3.0, -0.65);
+  tip.lineTo(2.78, -0.26);
+  tip.quadraticCurveTo(2.62, -0.08, 2.1, -0.07);
+  tip.closePath();
+  return tip;
 }
 
 export const Eyewear3DCanvas: React.FC<Eyewear3DCanvasProps> = ({
   config,
   theme,
+  locale,
   resetSignal,
+  paused = false,
 }) => {
   const mountRef = useRef<HTMLDivElement | null>(null);
+  const pausedRef = useRef<boolean>(paused);
   const [webglFailed, setWebglFailed] = useState(false);
 
-  const materialsRef = useRef<{
-    metal: THREE.MeshPhysicalMaterial | null;
-    accentMetal: THREE.MeshStandardMaterial | null;
-    lens: THREE.MeshPhysicalMaterial | null;
-    shadowMat: THREE.MeshBasicMaterial | null;
-  }>({ metal: null, accentMetal: null, lens: null, shadowMat: null });
+  useEffect(() => {
+    pausedRef.current = paused;
+  }, [paused]);
 
-  const orbitTargetRef = useRef({
-    rotY: -0.46,
-    rotX: 0.16,
-    currentY: -0.46,
-    currentX: 0.16,
+  const sceneRefs = useRef<{
+    renderer: THREE.WebGLRenderer | null;
+    metal: THREE.MeshPhysicalMaterial | null;
+    lens: THREE.MeshPhysicalMaterial | null;
+    plinthMat: THREE.MeshStandardMaterial | null;
+    causticMat: THREE.MeshBasicMaterial | null;
+    keyLight: THREE.DirectionalLight | null;
+    rimLight: THREE.DirectionalLight | null;
+    fillLight: THREE.HemisphereLight | null;
+  }>({
+    renderer: null,
+    metal: null,
+    lens: null,
+    plinthMat: null,
+    causticMat: null,
+    keyLight: null,
+    rimLight: null,
+    fillLight: null,
+  });
+
+  const targetRef = useRef({
+    rotY: CAMERA_PRESETS.runway.rotY,
+    rotX: CAMERA_PRESETS.runway.rotX,
+    currentY: CAMERA_PRESETS.runway.rotY,
+    currentX: CAMERA_PRESETS.runway.rotX,
+    camPos: new THREE.Vector3(...CAMERA_PRESETS.runway.camPos),
+    lookAt: new THREE.Vector3(...CAMERA_PRESETS.runway.lookAt),
+    currentLookAt: new THREE.Vector3(...CAMERA_PRESETS.runway.lookAt),
+    explodedTarget: 0,
+    explodedCurrent: 0,
     dragging: false,
     lastX: 0,
     lastY: 0,
     scrollTilt: 0,
+    autoOrbit: true,
   });
 
-  // Reset camera view when requested
+  // React to Camera Preset changes
   useEffect(() => {
-    orbitTargetRef.current.rotY = -0.46;
-    orbitTargetRef.current.rotX = 0.16;
-  }, [resetSignal]);
+    const preset = CAMERA_PRESETS[config.cameraPreset];
+    targetRef.current.camPos.set(...preset.camPos);
+    targetRef.current.lookAt.set(...preset.lookAt);
+    targetRef.current.rotY = preset.rotY;
+    targetRef.current.rotX = preset.rotX;
+    targetRef.current.explodedTarget = preset.exploded;
+    targetRef.current.autoOrbit = config.cameraPreset === 'runway';
+  }, [config.cameraPreset, resetSignal]);
 
   // Mount Three.js scene once
   useEffect(() => {
@@ -170,35 +339,33 @@ export const Eyewear3DCanvas: React.FC<Eyewear3DCanvasProps> = ({
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.setSize(width, height);
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.18;
+    renderer.toneMappingExposure = LIGHTING_MOODS[config.lightingMood].exposure;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     container.innerHTML = '';
     container.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(32, width / height, 0.1, 100);
-    camera.position.set(0, 0.45, 8.6);
-    camera.lookAt(0, -0.04, 0);
+    camera.position.set(...CAMERA_PRESETS.runway.camPos);
 
-    // Studio IBL using RoomEnvironment
     const pmrem = new THREE.PMREMGenerator(renderer);
     const envTexture = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
     scene.environment = envTexture;
 
-    // Studio soft directional + warm rim lighting
-    const keyLight = new THREE.DirectionalLight(0xfff6e8, 2.2);
-    keyLight.position.set(4.5, 6.5, 5.2);
+    const mood = LIGHTING_MOODS[config.lightingMood];
+    const keyLight = new THREE.DirectionalLight(mood.keyColor, mood.keyIntensity);
+    keyLight.position.set(4.6, 6.8, 5.4);
     scene.add(keyLight);
 
-    const rimLight = new THREE.DirectionalLight(0xd4b483, 1.35);
-    rimLight.position.set(-5.2, 2.4, -3.5);
+    const rimLight = new THREE.DirectionalLight(mood.rimColor, mood.rimIntensity);
+    rimLight.position.set(-5.4, 2.6, -3.8);
     scene.add(rimLight);
 
-    const fillLight = new THREE.HemisphereLight(0xf6f3ed, 0x3b352d, 0.75);
+    const fillLight = new THREE.HemisphereLight(mood.fillSky, mood.fillGround, 0.78);
     scene.add(fillLight);
 
-    // Procedural brushed titanium texture
     const brushedTex = createBrushedTitaniumTexture();
+    const travertineTex = createTravertineTexture(theme === 'nocturne');
 
     const finish =
       HERO_FRAME_FINISHES.find((f) => f.id === config.frameFinishId) ??
@@ -213,66 +380,121 @@ export const Eyewear3DCanvas: React.FC<Eyewear3DCanvasProps> = ({
       roughnessMap: brushedTex,
       bumpMap: brushedTex,
       bumpScale: 0.004,
-      clearcoat: 0.32,
-      clearcoatRoughness: 0.2,
-      envMapIntensity: 1.45,
+      clearcoat: 0.36,
+      clearcoatRoughness: 0.18,
+      envMapIntensity: 1.55,
     });
 
     const accentMetalMat = new THREE.MeshStandardMaterial({
       color: new THREE.Color('#B84A27'),
-      metalness: 0.85,
-      roughness: 0.25,
-      envMapIntensity: 1.3,
+      metalness: 0.88,
+      roughness: 0.22,
+      envMapIntensity: 1.4,
+    });
+
+    const earSleeveMat = new THREE.MeshPhysicalMaterial({
+      color: new THREE.Color('#19191D'),
+      roughness: 0.24,
+      metalness: 0.08,
+      clearcoat: 0.72,
+      clearcoatRoughness: 0.15,
     });
 
     const lensMat = new THREE.MeshPhysicalMaterial({
       color: new THREE.Color(lensSpec.hex),
       attenuationColor: new THREE.Color(lensSpec.attenuationHex),
-      attenuationDistance: 1.4,
-      transmission: 0.72,
+      attenuationDistance: 1.25,
+      transmission: 0.78,
       transparent: true,
       opacity: lensSpec.opacity,
-      roughness: 0.05,
-      metalness: 0.06,
+      roughness: 0.04,
+      metalness: 0.04,
       ior: 1.52,
-      thickness: 0.28,
+      thickness: 0.34,
       clearcoat: 1.0,
-      clearcoatRoughness: 0.04,
-      envMapIntensity: 1.65,
+      clearcoatRoughness: 0.03,
+      iridescence: 0.35,
+      iridescenceIOR: 1.3,
+      envMapIntensity: 1.75,
       side: THREE.DoubleSide,
     });
 
     const nosePadMat = new THREE.MeshPhysicalMaterial({
       color: 0xeae5db,
-      roughness: 0.35,
-      transmission: 0.45,
+      roughness: 0.3,
+      transmission: 0.5,
       transparent: true,
       opacity: 0.72,
     });
 
-    materialsRef.current = {
+    const plinthMat = new THREE.MeshStandardMaterial({
+      map: travertineTex,
+      roughness: 0.78,
+      metalness: 0.04,
+      envMapIntensity: 0.6,
+    });
+
+    const causticTex = createCausticGlowTexture(lensSpec.hex);
+    const causticMat = new THREE.MeshBasicMaterial({
+      map: causticTex,
+      transparent: true,
+      opacity: mood.causticOpacity,
+      depthWrite: false,
+    });
+
+    sceneRefs.current = {
+      renderer,
       metal: metalMat,
-      accentMetal: accentMetalMat,
       lens: lensMat,
-      shadowMat: null,
+      plinthMat,
+      causticMat,
+      keyLight,
+      rimLight,
+      fillLight,
     };
 
-    // Root eyewear assembly
+    // Sculpted Architectural Travertine Plinth beneath eyewear
+    const plinthGroup = new THREE.Group();
+    plinthGroup.position.set(0, -1.62, -0.2);
+    const mainSlabGeo = new THREE.CylinderGeometry(2.65, 2.75, 0.34, 64);
+    const mainSlab = new THREE.Mesh(mainSlabGeo, plinthMat);
+    plinthGroup.add(mainSlab);
+
+    const upperStepGeo = new THREE.CylinderGeometry(2.2, 2.26, 0.08, 64);
+    const upperStep = new THREE.Mesh(upperStepGeo, plinthMat);
+    upperStep.position.y = 0.2;
+    plinthGroup.add(upperStep);
+
+    const brassInlayGeo = new THREE.TorusGeometry(2.21, 0.014, 12, 72);
+    brassInlayGeo.rotateX(Math.PI / 2);
+    const brassInlay = new THREE.Mesh(brassInlayGeo, accentMetalMat);
+    brassInlay.position.y = 0.24;
+    plinthGroup.add(brassInlay);
+
+    const causticPlaneGeo = new THREE.PlaneGeometry(4.1, 2.5);
+    const causticPlane = new THREE.Mesh(causticPlaneGeo, causticMat);
+    causticPlane.rotation.x = -Math.PI / 2;
+    causticPlane.position.set(0, 0.246, 0.15);
+    plinthGroup.add(causticPlane);
+
+    scene.add(plinthGroup);
+
+    // Root floating eyewear assembly
     const eyewearGroup = new THREE.Group();
     scene.add(eyewearGroup);
 
     const frontAssembly = new THREE.Group();
-    frontAssembly.position.set(0, 0.1, 0.88);
+    frontAssembly.position.set(0, 0.12, 0.88);
     eyewearGroup.add(frontAssembly);
 
-    // Architectural milled rims (Left & Right) with subtle wrap angle
+    // Geometries with smooth luxury bevels
     const rimGeo = new THREE.ExtrudeGeometry(buildRimShape(1), {
       depth: 0.14,
       bevelEnabled: true,
-      bevelThickness: 0.032,
-      bevelSize: 0.024,
-      bevelSegments: 4,
-      curveSegments: 12,
+      bevelThickness: 0.036,
+      bevelSize: 0.026,
+      bevelSegments: 7,
+      curveSegments: 16,
     });
     rimGeo.center();
 
@@ -281,9 +503,28 @@ export const Eyewear3DCanvas: React.FC<Eyewear3DCanvasProps> = ({
       bevelEnabled: true,
       bevelThickness: 0.012,
       bevelSize: 0.008,
-      bevelSegments: 2,
+      bevelSegments: 3,
     });
     lensGeo.center();
+
+    const lugGeo = new THREE.BoxGeometry(0.28, 0.19, 0.24);
+    const rivetGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.045, 16);
+    rivetGeo.rotateX(Math.PI / 2);
+    const padArmGeo = new THREE.CylinderGeometry(0.016, 0.016, 0.3, 12);
+    const padGeo = new THREE.CapsuleGeometry(0.056, 0.12, 6, 12);
+
+    // Sub-assembly references for Exploded Assembly animation
+    const explodedParts: {
+      leftRim: THREE.Group;
+      rightRim: THREE.Group;
+      leftLens: THREE.Mesh;
+      rightLens: THREE.Mesh;
+      leftRivets: THREE.Group;
+      rightRivets: THREE.Group;
+      bridgeGroup: THREE.Group;
+      leftTemple: THREE.Group;
+      rightTemple: THREE.Group;
+    } = {} as never;
 
     const buildEyeUnit = (side: -1 | 1) => {
       const unit = new THREE.Group();
@@ -296,29 +537,25 @@ export const Eyewear3DCanvas: React.FC<Eyewear3DCanvasProps> = ({
       lensMesh.position.z = -0.01;
       unit.add(lensMesh);
 
-      // Endpiece lug + precision micro-rivets
-      const lugGeo = new THREE.BoxGeometry(0.26, 0.18, 0.24);
       const lug = new THREE.Mesh(lugGeo, metalMat);
       lug.position.set(side * 1.0, 0.33, -0.08);
       unit.add(lug);
 
-      const rivetGeo = new THREE.CylinderGeometry(0.028, 0.028, 0.04, 16);
-      rivetGeo.rotateX(Math.PI / 2);
+      const rivetsGroup = new THREE.Group();
       const rivetTop = new THREE.Mesh(rivetGeo, accentMetalMat);
-      rivetTop.position.set(side * 1.01, 0.37, 0.05);
+      rivetTop.position.set(side * 1.01, 0.375, 0.055);
       const rivetBot = new THREE.Mesh(rivetGeo, accentMetalMat);
-      rivetBot.position.set(side * 1.01, 0.29, 0.05);
-      unit.add(rivetTop, rivetBot);
+      rivetBot.position.set(side * 1.01, 0.285, 0.055);
+      rivetsGroup.add(rivetTop, rivetBot);
+      unit.add(rivetsGroup);
 
-      // Nosepad titanium wire & silicone pad
-      const padArmGeo = new THREE.CylinderGeometry(0.018, 0.018, 0.28, 10);
+      // Nosepad titanium wire & contoured pad
       const padArm = new THREE.Mesh(padArmGeo, metalMat);
       padArm.position.set(-side * 0.72, 0.02, -0.2);
       padArm.rotation.z = side * 0.45;
       padArm.rotation.x = 0.35;
       unit.add(padArm);
 
-      const padGeo = new THREE.CapsuleGeometry(0.055, 0.12, 6, 12);
       const pad = new THREE.Mesh(padGeo, nosePadMat);
       pad.scale.set(0.65, 1, 0.45);
       pad.position.set(-side * 0.64, -0.08, -0.28);
@@ -326,71 +563,99 @@ export const Eyewear3DCanvas: React.FC<Eyewear3DCanvasProps> = ({
       unit.add(pad);
 
       unit.position.set(side * 1.15, 0, 0);
-      unit.rotation.y = -side * 0.09; // subtle ergonomic wrap
+      unit.rotation.y = -side * 0.09;
+
+      if (side === -1) {
+        explodedParts.leftRim = unit;
+        explodedParts.leftLens = lensMesh;
+        explodedParts.leftRivets = rivetsGroup;
+      } else {
+        explodedParts.rightRim = unit;
+        explodedParts.rightLens = lensMesh;
+        explodedParts.rightRivets = rivetsGroup;
+      }
       return unit;
     };
 
     frontAssembly.add(buildEyeUnit(-1), buildEyeUnit(1));
 
-    // Architectural CNC milled double nose bridge
-    const upperBrowGeo = new THREE.BoxGeometry(2.86, 0.095, 0.14);
+    // Double milled bridge sub-assembly
+    const bridgeGroup = new THREE.Group();
+    const upperBrowGeo = new THREE.BoxGeometry(2.86, 0.092, 0.14);
     const upperBrow = new THREE.Mesh(upperBrowGeo, metalMat);
     upperBrow.position.set(0, 0.56, 0.03);
-    frontAssembly.add(upperBrow);
+    bridgeGroup.add(upperBrow);
 
     const bridgeArchGeo = new THREE.BoxGeometry(0.58, 0.12, 0.16);
     const bridgeArch = new THREE.Mesh(bridgeArchGeo, metalMat);
     bridgeArch.position.set(0, 0.28, 0.04);
-    frontAssembly.add(bridgeArch);
+    bridgeGroup.add(bridgeArch);
+    frontAssembly.add(bridgeGroup);
+    explodedParts.bridgeGroup = bridgeGroup;
 
-    // Precision hinge cylinders + sculpted brushed temple arms
+    // Sculpted titanium temples + precision 5-barrel cylindrical hinges + ergonomic ear-tip sleeves
     const armGeo = new THREE.ExtrudeGeometry(buildTempleArmShape(), {
       depth: 0.068,
       bevelEnabled: true,
-      bevelThickness: 0.014,
+      bevelThickness: 0.015,
       bevelSize: 0.012,
-      bevelSegments: 3,
+      bevelSegments: 4,
     });
     armGeo.translate(0, 0, -0.034);
 
-    const hingeGeo = new THREE.CylinderGeometry(0.062, 0.062, 0.22, 16);
+    const earTipGeo = new THREE.ExtrudeGeometry(buildEarTipSleeveShape(), {
+      depth: 0.082,
+      bevelEnabled: true,
+      bevelThickness: 0.018,
+      bevelSize: 0.016,
+      bevelSegments: 5,
+    });
+    earTipGeo.translate(0, 0, -0.041);
+
+    const barrelGeo = new THREE.CylinderGeometry(0.064, 0.064, 0.036, 20);
+    const pinGeo = new THREE.CylinderGeometry(0.022, 0.022, 0.25, 12);
+    const grooveGeo = new THREE.BoxGeometry(0.018, 0.024, 1.5);
 
     const buildTemple = (side: -1 | 1) => {
       const templeGroup = new THREE.Group();
-      const hinge = new THREE.Mesh(hingeGeo, metalMat);
-      hinge.position.set(side * 2.18, 0.33, 0.72);
-      templeGroup.add(hinge);
 
+      // Precision 5-barrel cylindrical hinge stack
+      for (let b = 0; b < 5; b++) {
+        const barrel = new THREE.Mesh(
+          barrelGeo,
+          b % 2 === 1 ? accentMetalMat : metalMat
+        );
+        barrel.position.set(side * 2.18, 0.24 + b * 0.045, 0.72);
+        templeGroup.add(barrel);
+      }
+      const hingePin = new THREE.Mesh(pinGeo, metalMat);
+      hingePin.position.set(side * 2.18, 0.33, 0.72);
+      templeGroup.add(hingePin);
+
+      // Brushed titanium temple shaft
       const armMesh = new THREE.Mesh(armGeo, metalMat);
-      armMesh.rotation.y = Math.PI / 2; // extend backward along -Z
+      armMesh.rotation.y = Math.PI / 2 + side * 0.03;
       armMesh.position.set(side * 2.18, 0.33, 0.72);
-      armMesh.rotation.y += side * 0.03;
       templeGroup.add(armMesh);
 
-      // Architectural laser groove detail stripe
-      const grooveGeo = new THREE.BoxGeometry(0.018, 0.025, 1.55);
+      // Ergonomic sculpted ear-tip sleeve
+      const earSleeve = new THREE.Mesh(earTipGeo, earSleeveMat);
+      earSleeve.rotation.y = Math.PI / 2 + side * 0.03;
+      earSleeve.position.set(side * 2.18, 0.33, 0.72);
+      templeGroup.add(earSleeve);
+
+      // Laser-etched architectural accent groove
       const groove = new THREE.Mesh(grooveGeo, accentMetalMat);
-      groove.position.set(side * 2.228, 0.33, -0.2);
+      groove.position.set(side * 2.226, 0.33, -0.18);
       templeGroup.add(groove);
+
+      if (side === -1) explodedParts.leftTemple = templeGroup;
+      else explodedParts.rightTemple = templeGroup;
 
       return templeGroup;
     };
 
     eyewearGroup.add(buildTemple(-1), buildTemple(1));
-
-    // Floating soft studio shadow disc underneath
-    const shadowTex = createShadowDiscTexture(theme === 'nocturne');
-    const shadowMat = new THREE.MeshBasicMaterial({
-      map: shadowTex,
-      transparent: true,
-      depthWrite: false,
-    });
-    materialsRef.current.shadowMat = shadowMat;
-
-    const shadowPlane = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 3.4), shadowMat);
-    shadowPlane.rotation.x = -Math.PI / 2;
-    shadowPlane.position.set(0, -1.18, -0.35);
-    scene.add(shadowPlane);
 
     // Pointer drag-to-orbit handlers
     const dom = renderer.domElement;
@@ -398,28 +663,28 @@ export const Eyewear3DCanvas: React.FC<Eyewear3DCanvasProps> = ({
     dom.style.touchAction = 'pan-y';
 
     const onPointerDown = (e: PointerEvent) => {
-      orbitTargetRef.current.dragging = true;
-      orbitTargetRef.current.lastX = e.clientX;
-      orbitTargetRef.current.lastY = e.clientY;
+      targetRef.current.dragging = true;
+      targetRef.current.lastX = e.clientX;
+      targetRef.current.lastY = e.clientY;
       dom.style.cursor = 'grabbing';
       dom.setPointerCapture(e.pointerId);
     };
 
     const onPointerMove = (e: PointerEvent) => {
-      if (!orbitTargetRef.current.dragging) return;
-      const dx = e.clientX - orbitTargetRef.current.lastX;
-      const dy = e.clientY - orbitTargetRef.current.lastY;
-      orbitTargetRef.current.lastX = e.clientX;
-      orbitTargetRef.current.lastY = e.clientY;
-      orbitTargetRef.current.rotY += dx * 0.0085;
-      orbitTargetRef.current.rotX = Math.max(
+      if (!targetRef.current.dragging) return;
+      const dx = e.clientX - targetRef.current.lastX;
+      const dy = e.clientY - targetRef.current.lastY;
+      targetRef.current.lastX = e.clientX;
+      targetRef.current.lastY = e.clientY;
+      targetRef.current.rotY += dx * 0.0085;
+      targetRef.current.rotX = Math.max(
         -0.55,
-        Math.min(0.62, orbitTargetRef.current.rotX + dy * 0.0065)
+        Math.min(0.62, targetRef.current.rotX + dy * 0.0065)
       );
     };
 
     const onPointerUp = (e: PointerEvent) => {
-      orbitTargetRef.current.dragging = false;
+      targetRef.current.dragging = false;
       dom.style.cursor = 'grab';
       if (dom.hasPointerCapture(e.pointerId)) {
         dom.releasePointerCapture(e.pointerId);
@@ -428,7 +693,7 @@ export const Eyewear3DCanvas: React.FC<Eyewear3DCanvasProps> = ({
 
     const onScroll = () => {
       const ratio = Math.min(1, window.scrollY / 640);
-      orbitTargetRef.current.scrollTilt = ratio * 0.34;
+      targetRef.current.scrollTilt = ratio * 0.28;
     };
 
     dom.addEventListener('pointerdown', onPointerDown);
@@ -448,7 +713,6 @@ export const Eyewear3DCanvas: React.FC<Eyewear3DCanvasProps> = ({
     });
     resizeObserver.observe(container);
 
-    // Animation loop with IntersectionObserver pause when off-screen
     let rafId = 0;
     let isVisible = true;
     const clock = new THREE.Clock();
@@ -463,23 +727,44 @@ export const Eyewear3DCanvas: React.FC<Eyewear3DCanvasProps> = ({
 
     const animate = () => {
       rafId = window.requestAnimationFrame(animate);
-      if (!isVisible) return;
-      const t = clock.getElapsedTime();
-      const state = orbitTargetRef.current;
+      if (!isVisible || pausedRef.current) return;
 
-      if (!state.dragging) {
-        state.rotY += 0.0014;
+      const t = clock.getElapsedTime();
+      const state = targetRef.current;
+
+      if (!state.dragging && state.autoOrbit) {
+        state.rotY += 0.0013;
       }
 
-      state.currentY += (state.rotY - state.currentY) * 0.08;
-      state.currentX += (state.rotX + state.scrollTilt - state.currentX) * 0.08;
+      state.currentY += (state.rotY - state.currentY) * 0.075;
+      state.currentX += (state.rotX + state.scrollTilt - state.currentX) * 0.075;
+      state.explodedCurrent += (state.explodedTarget - state.explodedCurrent) * 0.08;
+
+      camera.position.lerp(state.camPos, 0.075);
+      state.currentLookAt.lerp(state.lookAt, 0.075);
+      camera.lookAt(state.currentLookAt);
+
+      const ex = state.explodedCurrent;
+
+      // Exploded Assembly 3D separation choreography
+      explodedParts.leftRim.position.x = -1.15 - ex * 0.42;
+      explodedParts.rightRim.position.x = 1.15 + ex * 0.42;
+      explodedParts.leftLens.position.z = -0.01 + ex * 0.92;
+      explodedParts.rightLens.position.z = -0.01 + ex * 0.92;
+      explodedParts.leftRivets.position.z = ex * 0.65;
+      explodedParts.rightRivets.position.z = ex * 0.65;
+      explodedParts.bridgeGroup.position.y = ex * 0.56;
+      explodedParts.bridgeGroup.position.z = ex * 0.35;
+      explodedParts.leftTemple.position.set(-ex * 0.62, 0, -ex * 0.65);
+      explodedParts.rightTemple.position.set(ex * 0.62, 0, -ex * 0.65);
 
       eyewearGroup.rotation.y = state.currentY;
       eyewearGroup.rotation.x = state.currentX;
-      eyewearGroup.position.y = 0.18 + Math.sin(t * 1.25) * 0.07;
+      eyewearGroup.position.y = 0.22 + Math.sin(t * 1.3) * 0.065;
 
-      const shadowScale = 1 - Math.sin(t * 1.25) * 0.04;
-      shadowPlane.scale.set(shadowScale, shadowScale, 1);
+      // Soft breathing caustic glow on travertine plinth
+      const causticScale = 1 + Math.sin(t * 1.3) * 0.045;
+      causticPlane.scale.set(causticScale, causticScale, 1);
 
       renderer.render(scene, camera);
     };
@@ -495,26 +780,40 @@ export const Eyewear3DCanvas: React.FC<Eyewear3DCanvasProps> = ({
       dom.removeEventListener('pointercancel', onPointerUp);
       window.removeEventListener('scroll', onScroll);
       brushedTex.dispose();
-      shadowTex.dispose();
+      travertineTex.dispose();
+      causticTex.dispose();
       envTexture.dispose();
       pmrem.dispose();
+      mainSlabGeo.dispose();
+      upperStepGeo.dispose();
+      brassInlayGeo.dispose();
+      causticPlaneGeo.dispose();
       rimGeo.dispose();
       lensGeo.dispose();
-      armGeo.dispose();
-      hingeGeo.dispose();
+      lugGeo.dispose();
+      rivetGeo.dispose();
+      padArmGeo.dispose();
+      padGeo.dispose();
       upperBrowGeo.dispose();
       bridgeArchGeo.dispose();
+      armGeo.dispose();
+      earTipGeo.dispose();
+      barrelGeo.dispose();
+      pinGeo.dispose();
+      grooveGeo.dispose();
       metalMat.dispose();
       accentMetalMat.dispose();
+      earSleeveMat.dispose();
       lensMat.dispose();
       nosePadMat.dispose();
-      shadowMat.dispose();
+      plinthMat.dispose();
+      causticMat.dispose();
       renderer.dispose();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Update PBR material colors smoothly when user switches Finish or Lens Tint
+  // Update PBR titanium finish, lens tint, and caustic tint
   useEffect(() => {
     const finish =
       HERO_FRAME_FINISHES.find((f) => f.id === config.frameFinishId) ??
@@ -522,26 +821,55 @@ export const Eyewear3DCanvas: React.FC<Eyewear3DCanvasProps> = ({
     const lensSpec =
       HERO_LENS_TINTS.find((l) => l.id === config.lensTintId) ?? HERO_LENS_TINTS[0];
 
-    if (materialsRef.current.metal) {
-      materialsRef.current.metal.color.set(finish.metalHex);
-      materialsRef.current.metal.metalness = finish.metalness;
-      materialsRef.current.metal.roughness = finish.roughness;
-      materialsRef.current.metal.needsUpdate = true;
+    if (sceneRefs.current.metal) {
+      sceneRefs.current.metal.color.set(finish.metalHex);
+      sceneRefs.current.metal.metalness = finish.metalness;
+      sceneRefs.current.metal.roughness = finish.roughness;
+      sceneRefs.current.metal.needsUpdate = true;
     }
-    if (materialsRef.current.lens) {
-      materialsRef.current.lens.color.set(lensSpec.hex);
-      materialsRef.current.lens.attenuationColor.set(lensSpec.attenuationHex);
-      materialsRef.current.lens.opacity = lensSpec.opacity;
-      materialsRef.current.lens.needsUpdate = true;
+    if (sceneRefs.current.lens) {
+      sceneRefs.current.lens.color.set(lensSpec.hex);
+      sceneRefs.current.lens.attenuationColor.set(lensSpec.attenuationHex);
+      sceneRefs.current.lens.opacity = lensSpec.opacity;
+      sceneRefs.current.lens.needsUpdate = true;
     }
-  }, [config]);
+    if (sceneRefs.current.causticMat) {
+      const oldMap = sceneRefs.current.causticMat.map;
+      sceneRefs.current.causticMat.map = createCausticGlowTexture(lensSpec.hex);
+      sceneRefs.current.causticMat.needsUpdate = true;
+      oldMap?.dispose();
+    }
+  }, [config.frameFinishId, config.lensTintId]);
 
-  // Update studio shadow disc for Paper vs Nocturne theme
+  // Update real-time Studio Lighting Mood
   useEffect(() => {
-    if (materialsRef.current.shadowMat) {
-      const oldMap = materialsRef.current.shadowMat.map;
-      materialsRef.current.shadowMat.map = createShadowDiscTexture(theme === 'nocturne');
-      materialsRef.current.shadowMat.needsUpdate = true;
+    const mood = LIGHTING_MOODS[config.lightingMood];
+    if (sceneRefs.current.keyLight) {
+      sceneRefs.current.keyLight.color.set(mood.keyColor);
+      sceneRefs.current.keyLight.intensity = mood.keyIntensity;
+    }
+    if (sceneRefs.current.rimLight) {
+      sceneRefs.current.rimLight.color.set(mood.rimColor);
+      sceneRefs.current.rimLight.intensity = mood.rimIntensity;
+    }
+    if (sceneRefs.current.fillLight) {
+      sceneRefs.current.fillLight.color.set(mood.fillSky);
+      sceneRefs.current.fillLight.groundColor.set(mood.fillGround);
+    }
+    if (sceneRefs.current.renderer) {
+      sceneRefs.current.renderer.toneMappingExposure = mood.exposure;
+    }
+    if (sceneRefs.current.causticMat) {
+      sceneRefs.current.causticMat.opacity = mood.causticOpacity;
+    }
+  }, [config.lightingMood]);
+
+  // Update travertine plinth material tone on Paper <-> Nocturne wipe
+  useEffect(() => {
+    if (sceneRefs.current.plinthMat) {
+      const oldMap = sceneRefs.current.plinthMat.map;
+      sceneRefs.current.plinthMat.map = createTravertineTexture(theme === 'nocturne');
+      sceneRefs.current.plinthMat.needsUpdate = true;
       oldMap?.dispose();
     }
   }, [theme]);
@@ -584,11 +912,38 @@ export const Eyewear3DCanvas: React.FC<Eyewear3DCanvasProps> = ({
   }
 
   return (
-    <div
-      ref={mountRef}
-      data-cursor="DRAG 3D"
-      className="h-full w-full select-none"
-      aria-label="Interactive 3D VÉRA-01 Monolith Titanium Eyewear Showcase"
-    />
+    <div className="relative h-full w-full">
+      <div
+        ref={mountRef}
+        data-cursor="DRAG 3D"
+        className="h-full w-full select-none"
+        aria-label="Interactive 3D VÉRA-01 Monolith Titanium Eyewear Showcase"
+      />
+
+      {/* Exploded Assembly Floating Engineering Callout Badges */}
+      {config.cameraPreset === 'exploded' && (
+        <div
+          data-testid="exploded-callouts"
+          className="pointer-events-none absolute inset-0 z-10 hidden sm:block"
+        >
+          <div className="absolute left-[10%] top-[24%] border border-[var(--hairline-strong)] bg-[var(--surface)]/92 px-2.5 py-1 font-mono-tech text-[9px] uppercase tracking-[0.18em] text-[var(--ink)] shadow-sm backdrop-blur-sm">
+            <span className="text-[var(--accent)]">01 · </span>
+            {locale === 'en' ? 'ZERO-SOLDER TI BRIDGE' : 'CẦU KÍNH TITAN KHÔNG HÀN'}
+          </div>
+          <div className="absolute right-[9%] top-[27%] border border-[var(--hairline-strong)] bg-[var(--surface)]/92 px-2.5 py-1 font-mono-tech text-[9px] uppercase tracking-[0.18em] text-[var(--ink)] shadow-sm backdrop-blur-sm">
+            <span className="text-[var(--accent)]">02 · </span>
+            {locale === 'en' ? '5-BARREL CNC HINGE' : 'BẢN LỀ CNC 5 CHẤU'}
+          </div>
+          <div className="absolute left-[14%] bottom-[24%] border border-[var(--hairline-strong)] bg-[var(--surface)]/92 px-2.5 py-1 font-mono-tech text-[9px] uppercase tracking-[0.18em] text-[var(--ink)] shadow-sm backdrop-blur-sm">
+            <span className="text-[var(--accent)]">03 · </span>
+            {locale === 'en' ? 'CR-39 IRIDESCENT OPTICS' : 'TRÒNG QUANG HỌC CR-39'}
+          </div>
+          <div className="absolute right-[13%] bottom-[22%] border border-[var(--hairline-strong)] bg-[var(--surface)]/92 px-2.5 py-1 font-mono-tech text-[9px] uppercase tracking-[0.18em] text-[var(--ink)] shadow-sm backdrop-blur-sm">
+            <span className="text-[var(--accent)]">04 · </span>
+            {locale === 'en' ? '4MM GRADE-5 BEVEL RIM' : 'VÀNH TITAN CẤP 5 DÀY 4MM'}
+          </div>
+        </div>
+      )}
+    </div>
   );
 };

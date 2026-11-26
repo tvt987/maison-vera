@@ -5,6 +5,7 @@ import {
   Moon,
   Search,
   ShoppingBag,
+  Sparkles,
   X,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
@@ -24,6 +25,7 @@ export const CommandSearchModal: React.FC = () => {
     toggleThemeWithWipe,
     toggleCurrency,
     toggleLocale,
+    setStylistOpen,
     setBagOpen,
   } = useStore();
 
@@ -77,6 +79,15 @@ export const CommandSearchModal: React.FC = () => {
       run: () => {
         toggleLocale();
         setSearchOpen(false);
+      },
+    },
+    {
+      id: 'stylist',
+      label: copy.cmdActionStylist,
+      icon: Sparkles,
+      run: () => {
+        setSearchOpen(false);
+        setStylistOpen(true);
       },
     },
     {

@@ -2,11 +2,15 @@ import React, { useEffect, useRef } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import Lenis from 'lenis';
+import { AtelierCurtain } from './components/AtelierCurtain';
 import { AtelierManifesto } from './components/AtelierManifesto';
+import { AtelierStylistDrawer } from './components/AtelierStylistDrawer';
 import { BagDrawer } from './components/BagDrawer';
 import { CatalogSection } from './components/CatalogSection';
 import { CheckoutModal } from './components/CheckoutModal';
 import { CommandSearchModal } from './components/CommandSearchModal';
+import { CompareDockModal } from './components/CompareDockModal';
+import { CraftsmanshipStrip } from './components/CraftsmanshipStrip';
 import { CustomCursor } from './components/CustomCursor';
 import { EditorialLookbook } from './components/EditorialLookbook';
 import { HeroShowcase } from './components/HeroShowcase';
@@ -25,7 +29,6 @@ const StorefrontShell: React.FC = () => {
   const { hasActiveOverlay } = useStore();
   const lenisRef = useRef<Lenis | null>(null);
 
-  // Sync Lenis smooth inertial scrolling with GSAP ScrollTrigger
   useEffect(() => {
     const prefersReduced =
       window.matchMedia &&
@@ -47,7 +50,6 @@ const StorefrontShell: React.FC = () => {
     gsap.ticker.add(tickerFn);
     gsap.ticker.lagSmoothing(0);
 
-    // Subtle vertical polish on major editorial sections without hiding content permanently
     const ctx = gsap.context(() => {
       gsap.utils.toArray<HTMLElement>('.reveal-section').forEach((section) => {
         gsap.fromTo(
@@ -65,6 +67,22 @@ const StorefrontShell: React.FC = () => {
           }
         );
       });
+
+      gsap.fromTo(
+        '.craft-card',
+        { y: 20 },
+        {
+          y: 0,
+          duration: 0.65,
+          stagger: 0.09,
+          ease: 'power2.out',
+          scrollTrigger: {
+            trigger: '#craft',
+            start: 'top 86%',
+            once: true,
+          },
+        }
+      );
     });
 
     return () => {
@@ -75,7 +93,6 @@ const StorefrontShell: React.FC = () => {
     };
   }, []);
 
-  // Pause smooth scrolling when modals or drawers are open so overlay scroll is native
   useEffect(() => {
     if (hasActiveOverlay) {
       lenisRef.current?.stop();
@@ -91,6 +108,7 @@ const StorefrontShell: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[var(--bg)] text-[var(--ink)]">
+      <AtelierCurtain />
       <CustomCursor />
       <Navbar />
       <main>
@@ -98,16 +116,19 @@ const StorefrontShell: React.FC = () => {
         <RunwayTicker />
         <EditorialLookbook />
         <CatalogSection />
+        <CraftsmanshipStrip />
         <RecentlyViewedStrip />
       </main>
       <AtelierManifesto />
 
-      {/* Production Overlays & Drawers */}
+      {/* Production Overlays, Concierge Drawers & Comparison Matrix */}
+      <AtelierStylistDrawer />
       <LookbookDrawer />
       <ProductQuickView />
       <CommandSearchModal />
       <WishlistDrawer />
       <BagDrawer />
+      <CompareDockModal />
       <CheckoutModal />
       <ToastStack />
     </div>

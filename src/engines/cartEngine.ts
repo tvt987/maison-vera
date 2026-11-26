@@ -1,6 +1,7 @@
 import type {
   CartItem,
   CartTotals,
+  FoilFinishId,
   LookbookPlate,
   Product,
   ProductSize,
@@ -8,6 +9,8 @@ import type {
   PromoEvaluationResult,
   PromoRule,
 } from '../types/commerce';
+import { serializeMonogram } from './monogramEngine';
+import { STYLIST_BUNDLE_DISCOUNT_RATE } from './stylistEngine';
 
 export const FREE_SHIPPING_THRESHOLD_USD = 350;
 export const STANDARD_SHIPPING_USD = 25;
@@ -54,9 +57,18 @@ export function makeCartKey(
   productId: string,
   size: ProductSize,
   colorwayId: string,
-  customMeta?: string
+  customMeta?: string,
+  monogram?: { text: string; foil: FoilFinishId },
+  stylistBundleId?: string
 ): string {
-  return [productId, size, colorwayId, customMeta ?? ''].join('::');
+  return [
+    productId,
+    size,
+    colorwayId,
+    customMeta ?? '',
+    serializeMonogram(monogram),
+    stylistBundleId ?? '',
+  ].join('::');
 }
 
 export function upsertCartItem(
@@ -67,6 +79,8 @@ export function upsertCartItem(
     colorwayId: string;
     quantity?: number;
     customMeta?: string;
+    monogram?: { text: string; foil: FoilFinishId };
+    stylistBundleId?: string;
   },
   maxStock = 20
 ): CartItem[] {
@@ -75,7 +89,9 @@ export function upsertCartItem(
     payload.productId,
     payload.size,
     payload.colorwayId,
-    payload.customMeta
+    payload.customMeta,
+    payload.monogram,
+    payload.stylistBundleId
   );
   const existing = items.find((item) => item.key === key);
 
@@ -96,6 +112,8 @@ export function upsertCartItem(
       colorwayId: payload.colorwayId,
       quantity: Math.min(maxStock, qtyToAdd),
       customMeta: payload.customMeta,
+      monogram: payload.monogram,
+      stylistBundleId: payload.stylistBundleId,
     },
   ];
 }
@@ -159,26 +177,64 @@ export function calculateCartTotals(
 ): CartTotals {
   let merchandiseSubtotalUsd = 0;
   let totalUnits = 0;
-  const qtyByProductId: Record<string, number> = {};
+
+  // Separate non-stylist items for Lookbook (-10%) matching so no piece double-stacks bundle discounts
+  const nonStylistQtyByProductId: Record<string, number> = {};
+  const stylistGroups: Record<string, CartItem[]> = {};
 
   for (const item of items) {
     const product = productsById[item.productId];
     if (!product || item.quantity <= 0) continue;
     merchandiseSubtotalUsd += product.priceUsd * item.quantity;
     totalUnits += item.quantity;
-    qtyByProductId[item.productId] =
-      (qtyByProductId[item.productId] ?? 0) + item.quantity;
+
+    if (item.stylistBundleId) {
+      if (!stylistGroups[item.stylistBundleId]) {
+        stylistGroups[item.stylistBundleId] = [];
+      }
+      stylistGroups[item.stylistBundleId].push(item);
+    } else {
+      nonStylistQtyByProductId[item.productId] =
+        (nonStylistQtyByProductId[item.productId] ?? 0) + item.quantity;
+    }
   }
 
   merchandiseSubtotalUsd = round2(merchandiseSubtotalUsd);
 
+  // 1. Stylist Wardrobe Bundle (-12%) when all 3 curated items of a stylistBundleId exist
+  const matchedStylistBundles: CartTotals['matchedStylistBundles'] = [];
+  let stylistDiscountUsd = 0;
+
+  for (const [bundleId, groupItems] of Object.entries(stylistGroups)) {
+    const uniqueIds = new Set(groupItems.map((i) => i.productId));
+    if (uniqueIds.size >= 3) {
+      const setCount = Math.min(...groupItems.map((i) => i.quantity));
+      const singleSetRetail = groupItems.reduce(
+        (sum, i) => sum + (productsById[i.productId]?.priceUsd ?? 0),
+        0
+      );
+      const savingsUsd = round2(
+        singleSetRetail * STYLIST_BUNDLE_DISCOUNT_RATE * setCount
+      );
+      stylistDiscountUsd = round2(stylistDiscountUsd + savingsUsd);
+      matchedStylistBundles.push({ bundleId, savingsUsd });
+    } else {
+      // Partial stylist bundle falls back to regular Lookbook eligibility
+      for (const item of groupItems) {
+        nonStylistQtyByProductId[item.productId] =
+          (nonStylistQtyByProductId[item.productId] ?? 0) + item.quantity;
+      }
+    }
+  }
+
+  // 2. Editorial Lookbook Bundle (-10%)
   const matchedLookbooks: CartTotals['matchedLookbooks'] = [];
   let lookbookDiscountUsd = 0;
 
   for (const look of lookbooks) {
     const requiredIds = look.hotspots.map((h) => h.productId);
     const completeSetCount = Math.min(
-      ...requiredIds.map((pid) => qtyByProductId[pid] ?? 0)
+      ...requiredIds.map((pid) => nonStylistQtyByProductId[pid] ?? 0)
     );
     if (completeSetCount > 0) {
       const singleBundleRetail = requiredIds.reduce(
@@ -199,7 +255,7 @@ export function calculateCartTotals(
   }
 
   const postBundleSubtotalUsd = round2(
-    Math.max(0, merchandiseSubtotalUsd - lookbookDiscountUsd)
+    Math.max(0, merchandiseSubtotalUsd - lookbookDiscountUsd - stylistDiscountUsd)
   );
 
   let promoDiscountUsd = 0;
@@ -234,7 +290,9 @@ export function calculateCartTotals(
   return {
     merchandiseSubtotalUsd,
     lookbookDiscountUsd,
+    stylistDiscountUsd,
     matchedLookbooks,
+    matchedStylistBundles,
     postBundleSubtotalUsd,
     promoDiscountUsd,
     giftWrapUsd,

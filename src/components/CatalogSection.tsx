@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
+  Columns3,
   Eye,
   Heart,
   RotateCcw,
@@ -10,6 +11,7 @@ import {
 import { useStore } from '../context/StoreContext';
 import { CATALOG } from '../data/catalog';
 import { CATEGORY_LABELS, COLOR_FAMILY_LABELS, t } from '../data/i18n';
+import { atelierAudio } from '../engines/atelierAudio';
 import { formatMoney } from '../engines/currency';
 import { DEFAULT_FILTERS, filterAndSortCatalog } from '../engines/filterEngine';
 import type {
@@ -51,30 +53,68 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     addToBag,
     toggleWishlist,
     isWishlisted,
+    compareIds,
+    toggleCompare,
     openQuickView,
   } = useStore();
 
   const [activeColorIdx, setActiveColorIdx] = useState(0);
   const [hovered, setHovered] = useState(false);
+  const [tilt, setTilt] = useState({ rx: 0, ry: 0, gx: 50, gy: 50 });
 
   const copy = t(locale);
   const colorway = product.colorways[activeColorIdx] ?? product.colorways[0];
   const wishlisted = isWishlisted(product.id);
+  const comparing = compareIds.includes(product.id);
   const isSoldOut = product.stock <= 0;
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const px = (e.clientX - rect.left) / rect.width;
+    const py = (e.clientY - rect.top) / rect.height;
+    setTilt({
+      rx: (0.5 - py) * 7,
+      ry: (px - 0.5) * 7,
+      gx: Math.round(px * 100),
+      gy: Math.round(py * 100),
+    });
+  };
 
   return (
     <article
       data-testid={`product-card-${product.sku}`}
       onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      className="group flex flex-col border border-[var(--hairline)] bg-[var(--surface)] transition-all duration-300 hover:-translate-y-0.5 hover:border-[var(--hairline-strong)] hover:shadow-[var(--shadow-card)]"
+      onMouseMove={handleMouseMove}
+      onMouseLeave={() => {
+        setHovered(false);
+        setTilt({ rx: 0, ry: 0, gx: 50, gy: 50 });
+      }}
+      style={{
+        transform: hovered
+          ? `perspective(960px) rotateX(${tilt.rx.toFixed(2)}deg) rotateY(${tilt.ry.toFixed(2)}deg) translateY(-3px)`
+          : 'perspective(960px) rotateX(0deg) rotateY(0deg) translateY(0px)',
+        transition: hovered
+          ? 'transform 0.12s ease-out, box-shadow 0.3s ease, border-color 0.3s ease'
+          : 'transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.3s ease, border-color 0.3s ease',
+      }}
+      className="group relative flex flex-col border border-[var(--hairline)] bg-[var(--surface)] will-change-transform hover:border-[var(--hairline-strong)] hover:shadow-[var(--shadow-card)]"
     >
+      {/* Dynamic Specular Light Glare Overlay */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 z-30 transition-opacity duration-300"
+        style={{
+          opacity: hovered ? 1 : 0,
+          background: `radial-gradient(360px circle at ${tilt.gx}% ${tilt.gy}%, rgba(255, 250, 240, 0.16), transparent 62%)`,
+        }}
+      />
+
       {/* Studio Artwork Viewport with Dual-Angle Hover Swap & Quick-Add Size Bar */}
       <div
         data-cursor={isSoldOut ? 'EXPLORE' : 'QUICK ADD'}
         className="relative aspect-[5/6] overflow-hidden bg-[var(--studio-bg)] transition-colors duration-300 group-hover:bg-[var(--studio-bg-hover)]"
       >
-        {/* Top Badges & Wishlist Heart */}
+        {/* Top Badges & Action Icons (Compare, Quick-View, Wishlist) */}
         <div className="pointer-events-none absolute inset-x-3 top-3 z-20 flex items-start justify-between">
           <div className="flex flex-col gap-1">
             <span className="border border-[var(--hairline)] bg-[var(--surface)]/90 px-2 py-0.5 font-mono-tech text-[9px] uppercase tracking-[0.18em] text-[var(--ink-muted)] backdrop-blur-sm">
@@ -91,9 +131,24 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             ) : null}
           </div>
 
-          <div className="pointer-events-auto flex items-center gap-1.5">
+          <div className="pointer-events-auto flex items-center gap-1">
             <button
               type="button"
+              data-testid={`compare-toggle-${product.sku}`}
+              onClick={() => toggleCompare(product.id)}
+              aria-label={`${copy.cardCompare} ${product.name[locale]}`}
+              title={comparing ? copy.cardComparing : copy.cardCompare}
+              className={`flex h-8 w-8 items-center justify-center border backdrop-blur-sm transition-colors ${
+                comparing
+                  ? 'border-[var(--olive)] bg-[var(--olive)] text-white'
+                  : 'border-[var(--hairline)] bg-[var(--surface)]/90 text-[var(--ink)] hover:border-[var(--ink)]'
+              }`}
+            >
+              <Columns3 size={13} strokeWidth={1.5} />
+            </button>
+            <button
+              type="button"
+              data-testid={`quickview-btn-${product.sku}`}
               onClick={() => openQuickView(product.id)}
               aria-label={`${copy.cardQuickView} ${product.name[locale]}`}
               className="flex h-8 w-8 items-center justify-center border border-[var(--hairline)] bg-[var(--surface)]/90 text-[var(--ink)] backdrop-blur-sm transition-colors hover:border-[var(--ink)]"
@@ -152,7 +207,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           {copy.cardHoverDetail}
         </div>
 
-        {/* Quick-Add Size Bar on Hover (SSENSE / COS Studio Pattern) */}
+        {/* Quick-Add Size Bar on Hover */}
         <div
           className={`absolute inset-x-0 bottom-0 z-20 border-t border-[var(--hairline)] bg-[var(--surface)]/95 px-3 py-2.5 backdrop-blur-md transition-all duration-300 ${
             hovered
@@ -230,7 +285,10 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
                 <button
                   key={cw.id}
                   type="button"
-                  onClick={() => setActiveColorIdx(idx)}
+                  onClick={() => {
+                    atelierAudio.playDetent();
+                    setActiveColorIdx(idx);
+                  }}
                   title={cw.name[locale]}
                   aria-label={cw.name[locale]}
                   className={`h-4 w-4 rounded-full border transition-transform ${
@@ -324,7 +382,10 @@ export const CatalogSection: React.FC = () => {
                 key={cat}
                 type="button"
                 data-testid={`cat-tab-${cat}`}
-                onClick={() => setFilters((prev) => ({ ...prev, category: cat }))}
+                onClick={() => {
+                  atelierAudio.playDetent();
+                  setFilters((prev) => ({ ...prev, category: cat }));
+                }}
                 className={`inline-flex items-center gap-2 border px-4 py-2 text-xs uppercase tracking-[0.15em] transition-colors ${
                   active
                     ? 'border-[var(--ink)] bg-[var(--ink)] text-[var(--surface)]'
@@ -342,7 +403,6 @@ export const CatalogSection: React.FC = () => {
 
         {/* Faceted Filter Rail */}
         <div className="mb-8 grid grid-cols-1 gap-4 border border-[var(--hairline)] bg-[var(--surface)] p-4 sm:p-5 lg:grid-cols-12 lg:items-center">
-          {/* Live Search Input */}
           <div className="relative lg:col-span-4">
             <Search
               size={15}
@@ -371,7 +431,6 @@ export const CatalogSection: React.FC = () => {
             )}
           </div>
 
-          {/* Colorway Family Filter */}
           <div className="flex flex-wrap items-center gap-1.5 lg:col-span-4">
             {COLOR_FAMILIES.map((cf) => {
               const active = filters.colorFamily === cf.id;
@@ -400,7 +459,6 @@ export const CatalogSection: React.FC = () => {
             })}
           </div>
 
-          {/* Max Price Slider + In-Stock Toggle + Sort */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between lg:col-span-4">
             <div className="min-w-[135px] flex-1">
               <div className="mb-1 flex items-center justify-between font-mono-tech text-[10px] text-[var(--ink-muted)]">

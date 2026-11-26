@@ -1,11 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Heart, Ruler, ShieldCheck, ShoppingBag, X } from 'lucide-react';
+import { Heart, Ruler, ShieldCheck, ShoppingBag, X, ZoomIn } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { PRODUCT_BY_ID } from '../data/catalog';
 import { CATEGORY_LABELS, t } from '../data/i18n';
+import { atelierAudio } from '../engines/atelierAudio';
 import { formatMoney } from '../engines/currency';
 import { estimateAtelierSize } from '../engines/fitEngine';
-import type { FitPreference, ProductSize } from '../types/commerce';
+import { resolveActiveMonogram } from '../engines/monogramEngine';
+import type { FitPreference, MonogramConfig, ProductSize } from '../types/commerce';
+import { MonogramStudio } from './MonogramStudio';
 import { ProductArt } from './ProductArt';
 
 export const ProductQuickView: React.FC = () => {
@@ -26,6 +29,21 @@ export const ProductQuickView: React.FC = () => {
   const [angle, setAngle] = useState<'primary' | 'detail'>('primary');
   const [activeTab, setActiveTab] = useState<'overview' | 'fit'>('overview');
 
+  // Studio 2.2x Interactive Loupe Magnifier
+  const [loupeEnabled, setLoupeEnabled] = useState(false);
+  const [loupePos, setLoupePos] = useState<{ x: number; y: number; active: boolean }>({
+    x: 50,
+    y: 50,
+    active: false,
+  });
+
+  // Bespoke Monogram state
+  const [monogram, setMonogram] = useState<MonogramConfig>({
+    enabled: false,
+    text: 'TVT',
+    foil: 'gold-24k',
+  });
+
   // Fit estimator controls
   const [heightCm, setHeightCm] = useState(176);
   const [weightKg, setWeightKg] = useState(72);
@@ -37,6 +55,9 @@ export const ProductQuickView: React.FC = () => {
     setSelectedSize(product.sizes.includes('M') ? 'M' : product.sizes[0]);
     setAngle('primary');
     setActiveTab('overview');
+    setLoupeEnabled(false);
+    setLoupePos({ x: 50, y: 50, active: false });
+    setMonogram({ enabled: false, text: 'TVT', foil: 'gold-24k' });
   }, [product]);
 
   const fitResult = useMemo(
@@ -51,6 +72,14 @@ export const ProductQuickView: React.FC = () => {
   const wishlisted = isWishlisted(product.id);
   const isSoldOut = product.stock <= 0;
 
+  const handleViewportMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!loupeEnabled) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+    const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+    setLoupePos({ x, y, active: true });
+  };
+
   return (
     <div
       className="fixed inset-0 z-[95] flex items-center justify-center bg-black/55 p-4 backdrop-blur-xs"
@@ -62,27 +91,85 @@ export const ProductQuickView: React.FC = () => {
       <div
         data-testid="product-quickview-modal"
         onClick={(e) => e.stopPropagation()}
-        className="animate-modal-in grid max-h-[90vh] w-full max-w-[980px] grid-cols-1 overflow-hidden border border-[var(--hairline-strong)] bg-[var(--surface)] shadow-2xl md:grid-cols-12"
+        className="animate-modal-in grid max-h-[92vh] w-full max-w-[1020px] grid-cols-1 overflow-hidden border border-[var(--hairline-strong)] bg-[var(--surface)] shadow-2xl md:grid-cols-12"
       >
-        {/* Left Studio Dual-Angle Viewer */}
+        {/* Left Studio Dual-Angle + 2.2x Loupe Magnifier Viewer */}
         <div className="relative flex flex-col justify-between border-b border-[var(--hairline)] bg-[var(--studio-bg)] p-6 md:col-span-6 md:border-b-0 md:border-r">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <span className="font-mono-tech text-[10px] uppercase tracking-[0.2em] text-[var(--ink-muted)]">
               {product.sku} · {product.editionStamp}
             </span>
-            <span className="font-mono-tech text-[10px] uppercase tracking-[0.16em] text-[var(--accent)]">
-              {CATEGORY_LABELS[product.category][locale]}
-            </span>
+            <button
+              type="button"
+              data-testid="quickview-loupe-toggle"
+              onClick={() => {
+                atelierAudio.playDetent();
+                setLoupeEnabled((v) => !v);
+              }}
+              className={`inline-flex items-center gap-1.5 border px-2.5 py-1 font-mono-tech text-[10px] uppercase tracking-[0.14em] transition-colors ${
+                loupeEnabled
+                  ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-contrast)]'
+                  : 'border-[var(--hairline-strong)] bg-[var(--surface)] text-[var(--ink)] hover:border-[var(--ink)]'
+              }`}
+            >
+              <ZoomIn size={12} strokeWidth={1.6} />
+              {loupeEnabled ? copy.quickViewLoupeOn : copy.quickViewLoupeOff}
+            </button>
           </div>
 
-          <div className="my-4 flex min-h-[280px] flex-1 items-center justify-center sm:min-h-[360px]">
-            <ProductArt
-              product={product}
-              colorway={colorway}
-              variant={angle}
-              className="max-h-[380px] w-full"
-            />
+          <div
+            data-testid="quickview-studio-stage"
+            onMouseMove={handleViewportMove}
+            onMouseEnter={() => {
+              if (loupeEnabled) setLoupePos((p) => ({ ...p, active: true }));
+            }}
+            onMouseLeave={() => setLoupePos((p) => ({ ...p, active: false }))}
+            className={`relative my-4 flex min-h-[280px] flex-1 items-center justify-center overflow-hidden sm:min-h-[370px] ${
+              loupeEnabled ? 'cursor-crosshair' : ''
+            }`}
+          >
+            <div className="h-full w-full max-w-[340px]">
+              <ProductArt
+                product={product}
+                colorway={colorway}
+                variant={angle}
+                className="max-h-[380px] w-full"
+              />
+            </div>
+
+            {/* Interactive 2.2x Architectural Loupe Reticle */}
+            {loupeEnabled && (
+              <div
+                data-testid="quickview-loupe-lens"
+                aria-hidden="true"
+                className="pointer-events-none absolute z-30 h-40 w-40 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-full border-2 border-[var(--accent)] bg-[var(--studio-bg)] shadow-2xl ring-2 ring-black/15"
+                style={{
+                  left: `${loupePos.x}%`,
+                  top: `${loupePos.y}%`,
+                  opacity: loupePos.active ? 1 : 0.92,
+                }}
+              >
+                <div
+                  className="h-[370px] w-[340px]"
+                  style={{
+                    transform: `translate(${80 - (loupePos.x / 100) * 340 * 2.2}px, ${80 - (loupePos.y / 100) * 370 * 2.2}px) scale(2.2)`,
+                    transformOrigin: 'top left',
+                  }}
+                >
+                  <ProductArt product={product} colorway={colorway} variant={angle} />
+                </div>
+                <div className="absolute inset-x-0 bottom-1.5 text-center font-mono-tech text-[8px] uppercase tracking-[0.2em] text-[var(--ink)]">
+                  2.2X MACRO
+                </div>
+              </div>
+            )}
           </div>
+
+          {loupeEnabled && (
+            <p className="mb-2 text-center font-mono-tech text-[9.5px] uppercase tracking-[0.14em] text-[var(--accent)]">
+              {copy.quickViewLoupeHint}
+            </p>
+          )}
 
           <div className="grid grid-cols-2 gap-2">
             <button
@@ -110,11 +197,14 @@ export const ProductQuickView: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Details & Fit Estimator */}
-        <div className="flex max-h-[90vh] flex-col overflow-y-auto p-6 sm:p-8 md:col-span-6">
+        {/* Right Details, Monogram Studio & Fit Estimator */}
+        <div className="flex max-h-[92vh] flex-col overflow-y-auto p-6 sm:p-8 md:col-span-6">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h2 className="font-serif-editorial text-3xl leading-tight text-[var(--ink)]">
+              <p className="font-mono-tech text-[9.5px] uppercase tracking-[0.2em] text-[var(--accent)]">
+                {CATEGORY_LABELS[product.category][locale]}
+              </p>
+              <h2 className="mt-0.5 font-serif-editorial text-3xl leading-tight text-[var(--ink)]">
                 {product.name[locale]}
               </h2>
               <p className="mt-1 text-xs text-[var(--ink-muted)]">
@@ -143,7 +233,7 @@ export const ProductQuickView: React.FC = () => {
           </div>
 
           {/* Colorways */}
-          <div className="mt-5">
+          <div className="mt-4">
             <div className="mb-2 flex items-center justify-between text-xs">
               <span className="font-mono-tech text-[10px] uppercase tracking-[0.18em] text-[var(--ink-muted)]">
                 {copy.quickViewSelectColor}
@@ -155,7 +245,10 @@ export const ProductQuickView: React.FC = () => {
                 <button
                   key={cw.id}
                   type="button"
-                  onClick={() => setColorIdx(idx)}
+                  onClick={() => {
+                    atelierAudio.playDetent();
+                    setColorIdx(idx);
+                  }}
                   aria-label={cw.name[locale]}
                   className={`h-6 w-6 rounded-full border transition-transform ${
                     idx === colorIdx
@@ -169,7 +262,7 @@ export const ProductQuickView: React.FC = () => {
           </div>
 
           {/* Sizes */}
-          <div className="mt-5">
+          <div className="mt-4">
             <div className="mb-2 flex items-center justify-between">
               <span className="font-mono-tech text-[10px] uppercase tracking-[0.18em] text-[var(--ink-muted)]">
                 {copy.quickViewSelectSize}
@@ -189,7 +282,7 @@ export const ProductQuickView: React.FC = () => {
                   key={size}
                   type="button"
                   onClick={() => setSelectedSize(size)}
-                  className={`min-w-[48px] border px-3 py-2 font-mono-tech text-xs transition-colors ${
+                  className={`min-w-[48px] border px-3 py-1.5 font-mono-tech text-xs transition-colors ${
                     selectedSize === size
                       ? 'border-[var(--ink)] bg-[var(--ink)] text-[var(--surface)]'
                       : 'border-[var(--hairline-strong)] bg-[var(--bg)] text-[var(--ink)] hover:border-[var(--ink)]'
@@ -201,16 +294,30 @@ export const ProductQuickView: React.FC = () => {
             </div>
           </div>
 
+          {/* Live Bespoke Monogram & Foil-Stamping Studio */}
+          {!isSoldOut && (
+            <div className="mt-4">
+              <MonogramStudio
+                config={monogram}
+                onChange={setMonogram}
+                locale={locale}
+                testIdPrefix="qv-monogram"
+              />
+            </div>
+          )}
+
           {/* Primary Actions */}
-          <div className="mt-6 flex gap-2.5">
+          <div className="mt-5 flex gap-2.5">
             <button
               type="button"
               disabled={isSoldOut}
+              data-testid="quickview-add-to-bag"
               onClick={() => {
                 addToBag({
                   productId: product.id,
                   size: selectedSize,
                   colorwayId: colorway.id,
+                  monogram: resolveActiveMonogram(monogram),
                   openDrawer: true,
                 });
                 closeQuickView();
@@ -239,7 +346,7 @@ export const ProductQuickView: React.FC = () => {
           </div>
 
           {/* Tabs: Overview vs Interactive Size/Fit Guide */}
-          <div className="mt-6 border-t border-[var(--hairline)] pt-5">
+          <div className="mt-5 border-t border-[var(--hairline)] pt-5">
             <div className="mb-4 grid grid-cols-2 border border-[var(--hairline)]">
               <button
                 type="button"
@@ -267,7 +374,7 @@ export const ProductQuickView: React.FC = () => {
             </div>
 
             {activeTab === 'overview' ? (
-              <div className="space-y-3.5 text-xs leading-relaxed">
+              <div className="space-y-3 text-xs leading-relaxed">
                 <p className="text-[var(--ink-muted)]">{product.description[locale]}</p>
                 <div className="border-t border-[var(--hairline)] pt-3">
                   <p className="font-mono-tech text-[10px] uppercase tracking-[0.16em] text-[var(--ink)]">
