@@ -4,7 +4,7 @@ import { useStore } from '../context/StoreContext';
 import { PRODUCT_BY_ID } from '../data/catalog';
 import { t } from '../data/i18n';
 import { formatMoney } from '../engines/currency';
-import { ProductArt } from './ProductArt';
+import { ProductMedia } from './ProductMedia';
 
 export const WishlistDrawer: React.FC = () => {
   const {
@@ -70,8 +70,8 @@ export const WishlistDrawer: React.FC = () => {
                     key={prod.id}
                     className="flex gap-4 border border-[var(--hairline)] bg-[var(--bg)] p-3.5"
                   >
-                    <div className="h-24 w-20 shrink-0 border border-[var(--hairline)] bg-[var(--studio-bg)] p-1.5">
-                      <ProductArt product={prod} colorway={prod.colorways[0]} />
+                    <div className="h-24 w-20 shrink-0 overflow-hidden border border-[var(--hairline)] bg-[var(--studio-bg)]">
+                      <ProductMedia product={prod} colorway={prod.colorways[0]} />
                     </div>
                     <div className="flex min-w-0 flex-1 flex-col justify-between">
                       <div>

@@ -4,7 +4,7 @@ import { useStore } from '../context/StoreContext';
 import { PRODUCT_BY_ID } from '../data/catalog';
 import { t } from '../data/i18n';
 import { buildComparisonMatrix, MAX_COMPARE_SPECIMENS } from '../engines/compareEngine';
-import { ProductArt } from './ProductArt';
+import { ProductMedia } from './ProductMedia';
 
 export const CompareDockModal: React.FC = () => {
   const {
@@ -139,8 +139,8 @@ export const CompareDockModal: React.FC = () => {
                               <X size={13} strokeWidth={1.5} />
                             </button>
                           </div>
-                          <div className="h-36 w-full bg-[var(--studio-bg)] p-2">
-                            <ProductArt product={prod} colorway={prod.colorways[0]} />
+                          <div className="h-40 w-full overflow-hidden bg-[var(--studio-bg)]">
+                            <ProductMedia product={prod} colorway={prod.colorways[0]} />
                           </div>
                           <p className="mt-2.5 font-serif-editorial text-lg font-normal text-[var(--ink)]">
                             {prod.name[locale]}

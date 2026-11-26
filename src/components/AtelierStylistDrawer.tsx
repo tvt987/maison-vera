@@ -12,7 +12,7 @@ import type {
   StylistOccasion,
   StylistPalette,
 } from '../types/commerce';
-import { ProductArt } from './ProductArt';
+import { ProductMedia } from './ProductMedia';
 
 export const AtelierStylistDrawer: React.FC = () => {
   const {
@@ -234,8 +234,8 @@ export const AtelierStylistDrawer: React.FC = () => {
                   key={piece.product.id}
                   className="flex gap-3.5 border border-[var(--hairline)] bg-[var(--bg)] p-3"
                 >
-                  <div className="h-24 w-20 shrink-0 border border-[var(--hairline)] bg-[var(--studio-bg)] p-1">
-                    <ProductArt product={piece.product} colorway={piece.colorway} />
+                  <div className="h-24 w-20 shrink-0 overflow-hidden border border-[var(--hairline)] bg-[var(--studio-bg)]">
+                    <ProductMedia product={piece.product} colorway={piece.colorway} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">

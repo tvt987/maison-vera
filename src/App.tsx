@@ -16,6 +16,7 @@ import { EditorialLookbook } from './components/EditorialLookbook';
 import { HeroShowcase } from './components/HeroShowcase';
 import { LookbookDrawer } from './components/LookbookDrawer';
 import { Navbar } from './components/Navbar';
+import { PrivateVaultBanner } from './components/PrivateVaultBanner';
 import { ProductQuickView } from './components/ProductQuickView';
 import { RecentlyViewedStrip } from './components/RecentlyViewedStrip';
 import { RunwayTicker } from './components/RunwayTicker';
@@ -118,6 +119,7 @@ const StorefrontShell: React.FC = () => {
         <CatalogSection />
         <CraftsmanshipStrip />
         <RecentlyViewedStrip />
+        <PrivateVaultBanner />
       </main>
       <AtelierManifesto />
 

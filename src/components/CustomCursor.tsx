@@ -31,6 +31,10 @@ export const CustomCursor: React.FC = () => {
       setVisible(false);
     };
 
+    const onScroll = () => {
+      setLabel('');
+    };
+
     const tick = () => {
       pos.x += (pos.tx - pos.x) * 0.2;
       pos.y += (pos.ty - pos.y) * 0.2;
@@ -41,11 +45,13 @@ export const CustomCursor: React.FC = () => {
     };
 
     window.addEventListener('mousemove', onMouseMove, { passive: true });
+    window.addEventListener('scroll', onScroll, { passive: true });
     document.addEventListener('mouseleave', onMouseLeave);
     rafId = window.requestAnimationFrame(tick);
 
     return () => {
       window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('scroll', onScroll);
       document.removeEventListener('mouseleave', onMouseLeave);
       window.cancelAnimationFrame(rafId);
     };

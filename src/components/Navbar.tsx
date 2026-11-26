@@ -55,7 +55,7 @@ export const Navbar: React.FC = () => {
               ? 'COMPLIMENTARY DHL EXPRESS $350+ · BESPOKE FOIL MONOGRAM · AI STYLIST -12%'
               : 'MIỄN PHÍ DHL EXPRESS $350+ · ÉP KIM MONOGRAM MIỄN PHÍ · STYLIST AI -12%'}
           </span>
-          <span className="text-[var(--accent)]">AW26 · V2.0</span>
+          <span className="text-[var(--accent)]">AW26 · V3.0</span>
         </div>
       </div>
 

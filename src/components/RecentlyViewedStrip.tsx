@@ -4,7 +4,7 @@ import { useStore } from '../context/StoreContext';
 import { PRODUCT_BY_ID } from '../data/catalog';
 import { t } from '../data/i18n';
 import { formatMoney } from '../engines/currency';
-import { ProductArt } from './ProductArt';
+import { ProductMedia } from './ProductMedia';
 
 export const RecentlyViewedStrip: React.FC = () => {
   const { locale, currency, recentlyViewed, openQuickView } = useStore();
@@ -41,8 +41,8 @@ export const RecentlyViewedStrip: React.FC = () => {
               onClick={() => openQuickView(prod.id)}
               className="group flex flex-col border border-[var(--hairline)] bg-[var(--bg)] p-3 text-left transition-colors hover:border-[var(--ink)]"
             >
-              <div className="aspect-[5/6] w-full bg-[var(--studio-bg)] p-2">
-                <ProductArt product={prod} colorway={prod.colorways[0]} />
+              <div className="aspect-[3/4] w-full overflow-hidden bg-[var(--studio-bg)]">
+                <ProductMedia product={prod} colorway={prod.colorways[0]} />
               </div>
               <div className="mt-3 flex items-center justify-between">
                 <span className="font-mono-tech text-[9px] text-[var(--ink-muted)]">

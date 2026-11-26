@@ -6,7 +6,7 @@ import { t } from '../data/i18n';
 import { LOOKBOOKS } from '../data/lookbooks';
 import { formatMoney } from '../engines/currency';
 import type { ProductSize } from '../types/commerce';
-import { ProductArt } from './ProductArt';
+import { ProductMedia } from './ProductMedia';
 
 export const LookbookDrawer: React.FC = () => {
   const {
@@ -100,8 +100,8 @@ export const LookbookDrawer: React.FC = () => {
                   key={prod.id}
                   className="flex gap-4 border border-[var(--hairline)] bg-[var(--bg)] p-3.5"
                 >
-                  <div className="h-24 w-20 shrink-0 border border-[var(--hairline)] bg-[var(--studio-bg)] p-1.5">
-                    <ProductArt product={prod} colorway={activeColor} />
+                  <div className="h-24 w-20 shrink-0 overflow-hidden border border-[var(--hairline)] bg-[var(--studio-bg)]">
+                    <ProductMedia product={prod} colorway={activeColor} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">

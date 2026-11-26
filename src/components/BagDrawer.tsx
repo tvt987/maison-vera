@@ -16,9 +16,9 @@ import { GIFT_WRAP_FEE_USD } from '../engines/cartEngine';
 import { formatMoney } from '../engines/currency';
 import { formatMonogramLine } from '../engines/monogramEngine';
 import type { PromoCodeId } from '../types/commerce';
-import { ProductArt } from './ProductArt';
+import { ProductMedia } from './ProductMedia';
 
-const TEST_PROMO_PILLS: PromoCodeId[] = ['VERA15', 'ATELIER50', 'VIP200'];
+const TEST_PROMO_PILLS: PromoCodeId[] = ['VERA15', 'ATELIER50', 'VIP200', 'PRIVATE10'];
 
 export const BagDrawer: React.FC = () => {
   const {
@@ -207,8 +207,8 @@ export const BagDrawer: React.FC = () => {
                       key={item.key}
                       className="flex gap-4 border border-[var(--hairline)] bg-[var(--bg)] p-3.5"
                     >
-                      <div className="h-24 w-20 shrink-0 border border-[var(--hairline)] bg-[var(--studio-bg)] p-1.5">
-                        <ProductArt product={prod} colorway={cw} />
+                      <div className="h-24 w-20 shrink-0 overflow-hidden border border-[var(--hairline)] bg-[var(--studio-bg)]">
+                        <ProductMedia product={prod} colorway={cw} />
                       </div>
                       <div className="flex min-w-0 flex-1 flex-col justify-between">
                         <div>

@@ -13,7 +13,7 @@ import { CATALOG } from '../data/catalog';
 import { CATEGORY_LABELS, t } from '../data/i18n';
 import { formatMoney } from '../engines/currency';
 import { DEFAULT_FILTERS, filterAndSortCatalog } from '../engines/filterEngine';
-import { ProductArt } from './ProductArt';
+import { ProductMedia } from './ProductMedia';
 
 export const CommandSearchModal: React.FC = () => {
   const {
@@ -157,8 +157,8 @@ export const CommandSearchModal: React.FC = () => {
                   }}
                   className="flex w-full items-center gap-3 border border-transparent px-2.5 py-2 text-left transition-colors hover:border-[var(--hairline)] hover:bg-[var(--bg)]"
                 >
-                  <div className="h-12 w-10 shrink-0 border border-[var(--hairline)] bg-[var(--studio-bg)] p-1">
-                    <ProductArt product={prod} colorway={prod.colorways[0]} />
+                  <div className="h-12 w-10 shrink-0 overflow-hidden border border-[var(--hairline)] bg-[var(--studio-bg)]">
+                    <ProductMedia product={prod} colorway={prod.colorways[0]} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-serif-editorial text-lg text-[var(--ink)]">

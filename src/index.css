@@ -103,6 +103,23 @@ html[data-theme='nocturne'] {
   }
 }
 
+/* Subtle Hasselblad Hero Campaign Ken Burns Breathing Motion */
+@keyframes ken-burns-slow {
+  0% {
+    transform: scale(1.01) translate3d(0, 0, 0);
+  }
+  50% {
+    transform: scale(1.065) translate3d(-0.8%, -0.5%, 0);
+  }
+  100% {
+    transform: scale(1.01) translate3d(0, 0, 0);
+  }
+}
+
+.animate-ken-burns {
+  animation: ken-burns-slow 22s ease-in-out infinite;
+}
+
 .animate-runway-marquee {
   display: flex;
   width: max-content;

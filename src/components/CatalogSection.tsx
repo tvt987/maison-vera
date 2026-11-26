@@ -21,7 +21,7 @@ import type {
   ProductCategory,
   SortOption,
 } from '../types/commerce';
-import { ProductArt } from './ProductArt';
+import { ProductMedia } from './ProductMedia';
 
 const CATEGORIES: (ProductCategory | 'All')[] = [
   'All',
@@ -109,10 +109,10 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         }}
       />
 
-      {/* Studio Artwork Viewport with Dual-Angle Hover Swap & Quick-Add Size Bar */}
+      {/* Studio Real-Photo Viewport (3:4 Hasselblad) with Macro Hover Crop & Quick-Add Size Bar */}
       <div
         data-cursor={isSoldOut ? 'EXPLORE' : 'QUICK ADD'}
-        className="relative aspect-[5/6] overflow-hidden bg-[var(--studio-bg)] transition-colors duration-300 group-hover:bg-[var(--studio-bg-hover)]"
+        className="relative aspect-[3/4] overflow-hidden bg-[var(--studio-bg)] transition-colors duration-300"
       >
         {/* Top Badges & Action Icons (Compare, Quick-View, Wishlist) */}
         <div className="pointer-events-none absolute inset-x-3 top-3 z-20 flex items-start justify-between">
@@ -175,27 +175,19 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           </div>
         </div>
 
-        {/* Clickable Artwork Area (Primary <-> Detail Crossfade on Hover) */}
+        {/* Clickable Real Hasselblad Photography Area (Primary <-> Macro Crop on Hover) */}
         <button
           type="button"
           onClick={() => openQuickView(product.id)}
-          className="relative block h-full w-full p-4 text-left focus:outline-none"
+          className="relative block h-full w-full overflow-hidden text-left focus:outline-none"
           aria-label={product.name[locale]}
         >
-          <div
-            className={`absolute inset-4 transition-all duration-500 ease-out ${
-              hovered ? 'scale-[1.03] opacity-0' : 'scale-100 opacity-100'
-            }`}
-          >
-            <ProductArt product={product} colorway={colorway} variant="primary" />
-          </div>
-          <div
-            className={`absolute inset-4 transition-all duration-500 ease-out ${
-              hovered ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
-            }`}
-          >
-            <ProductArt product={product} colorway={colorway} variant="detail" />
-          </div>
+          <ProductMedia
+            product={product}
+            colorway={colorway}
+            variant={hovered ? 'detail' : 'primary'}
+            className="h-full w-full"
+          />
         </button>
 
         {/* Subtle Alt-Angle Indicator */}

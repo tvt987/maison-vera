@@ -1,5 +1,15 @@
 import type { Product } from '../types/commerce';
 
+export const HERO_EDITORIAL_IMAGE = 'hero_eyewear_editorial.webp';
+
+export function getMediaUrl(fileName: string): string {
+  const base =
+    typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL
+      ? import.meta.env.BASE_URL
+      : '/';
+  return `${base}media/${fileName}`;
+}
+
 export const HERO_FRAME_FINISHES = [
   {
     id: 'raw-titanium' as const,
@@ -8,6 +18,7 @@ export const HERO_FRAME_FINISHES = [
     metalness: 0.94,
     roughness: 0.25,
     colorwayId: 'eye01-titan',
+    photoFilter: 'none',
   },
   {
     id: 'warm-gold' as const,
@@ -16,6 +27,7 @@ export const HERO_FRAME_FINISHES = [
     metalness: 0.96,
     roughness: 0.22,
     colorwayId: 'eye01-gold',
+    photoFilter: 'sepia(0.18) saturate(1.16) brightness(1.02)',
   },
   {
     id: 'matte-noir' as const,
@@ -24,6 +36,7 @@ export const HERO_FRAME_FINISHES = [
     metalness: 0.78,
     roughness: 0.38,
     colorwayId: 'eye01-noir',
+    photoFilter: 'contrast(1.14) saturate(0.72) brightness(0.92)',
   },
 ] as const;
 
@@ -63,6 +76,7 @@ export const CATALOG: Product[] = [
   {
     id: 'mv-out-01',
     sku: 'MV-OUT-01',
+    imageFile: 'prod_out_01.webp',
     category: 'Outerwear',
     name: {
       en: 'Atelier Architectural Trench',
@@ -98,6 +112,7 @@ export const CATALOG: Product[] = [
         hex: '#C7B8A1',
         secondaryHex: '#A7967E',
         accentHex: '#6F614E',
+        photoFilter: 'none',
       },
       {
         id: 'out01-olive',
@@ -106,6 +121,7 @@ export const CATALOG: Product[] = [
         hex: '#3E4C40',
         secondaryHex: '#2B362D',
         accentHex: '#7A8C7C',
+        photoFilter: 'hue-rotate(38deg) saturate(0.88) brightness(0.92)',
       },
       {
         id: 'out01-noir',
@@ -114,6 +130,7 @@ export const CATALOG: Product[] = [
         hex: '#1E1F22',
         secondaryHex: '#121316',
         accentHex: '#5A5C63',
+        photoFilter: 'saturate(0.18) contrast(1.16) brightness(0.88)',
       },
     ],
     stock: 7,
@@ -125,6 +142,7 @@ export const CATALOG: Product[] = [
   {
     id: 'mv-out-02',
     sku: 'MV-OUT-02',
+    imageFile: 'prod_out_02.webp',
     category: 'Outerwear',
     name: {
       en: 'Brutalist Wool-Cashmere Overcoat',
@@ -160,6 +178,7 @@ export const CATALOG: Product[] = [
         hex: '#9E462B',
         secondaryHex: '#7A331E',
         accentHex: '#D07C5D',
+        photoFilter: 'none',
       },
       {
         id: 'out02-noir',
@@ -168,6 +187,7 @@ export const CATALOG: Product[] = [
         hex: '#222225',
         secondaryHex: '#151518',
         accentHex: '#62626A',
+        photoFilter: 'saturate(0.15) contrast(1.12) brightness(0.9)',
       },
       {
         id: 'out02-sand',
@@ -176,6 +196,7 @@ export const CATALOG: Product[] = [
         hex: '#DDD4C6',
         secondaryHex: '#C2B7A7',
         accentHex: '#887D6E',
+        photoFilter: 'sepia(0.14) saturate(0.62) brightness(1.08)',
       },
     ],
     stock: 4,
@@ -186,6 +207,7 @@ export const CATALOG: Product[] = [
   {
     id: 'mv-out-03',
     sku: 'MV-OUT-03',
+    imageFile: 'prod_out_03.webp',
     category: 'Outerwear',
     name: {
       en: 'Nocturne Raw-Silk Tailored Blazer',
@@ -221,6 +243,7 @@ export const CATALOG: Product[] = [
         hex: '#191A1E',
         secondaryHex: '#0F1013',
         accentHex: '#B89B6C',
+        photoFilter: 'none',
       },
       {
         id: 'out03-olive',
@@ -229,6 +252,7 @@ export const CATALOG: Product[] = [
         hex: '#36453A',
         secondaryHex: '#253128',
         accentHex: '#8A9A8E',
+        photoFilter: 'hue-rotate(60deg) saturate(1.1) brightness(1.02)',
       },
     ],
     stock: 9,
@@ -242,6 +266,7 @@ export const CATALOG: Product[] = [
   {
     id: 'mv-eye-01',
     sku: 'MV-EYE-01',
+    imageFile: 'prod_eye_01.webp',
     category: 'Eyewear',
     name: {
       en: 'VÉRA-01 Monolith Titanium Frame',
@@ -277,6 +302,7 @@ export const CATALOG: Product[] = [
         hex: '#C4C2BC',
         secondaryHex: '#9A9891',
         accentHex: '#B86B2B',
+        photoFilter: 'none',
       },
       {
         id: 'eye01-gold',
@@ -285,6 +311,7 @@ export const CATALOG: Product[] = [
         hex: '#D1AE6F',
         secondaryHex: '#A68649',
         accentHex: '#465B48',
+        photoFilter: 'hue-rotate(18deg) saturate(1.12) brightness(1.01)',
       },
       {
         id: 'eye01-noir',
@@ -293,6 +320,7 @@ export const CATALOG: Product[] = [
         hex: '#1E2024',
         secondaryHex: '#101114',
         accentHex: '#4A4D56',
+        photoFilter: 'saturate(0.35) contrast(1.15) brightness(0.92)',
       },
     ],
     stock: 11,
@@ -304,6 +332,7 @@ export const CATALOG: Product[] = [
   {
     id: 'mv-eye-02',
     sku: 'MV-EYE-02',
+    imageFile: 'prod_eye_02.webp',
     category: 'Eyewear',
     name: {
       en: 'Solaire Sculpted Bridge Shield',
@@ -339,6 +368,7 @@ export const CATALOG: Product[] = [
         hex: '#CDB07A',
         secondaryHex: '#9C814E',
         accentHex: '#4A3425',
+        photoFilter: 'none',
       },
       {
         id: 'eye02-titan',
@@ -347,6 +377,7 @@ export const CATALOG: Product[] = [
         hex: '#AEB0B4',
         secondaryHex: '#7B7E84',
         accentHex: '#2B2F36',
+        photoFilter: 'saturate(0.32) contrast(1.08)',
       },
     ],
     stock: 6,
@@ -357,6 +388,7 @@ export const CATALOG: Product[] = [
   {
     id: 'mv-eye-03',
     sku: 'MV-EYE-03',
+    imageFile: 'prod_eye_03.webp',
     category: 'Eyewear',
     name: {
       en: 'Archival Acetate Optical 04',
@@ -392,6 +424,7 @@ export const CATALOG: Product[] = [
         hex: '#8C4327',
         secondaryHex: '#592815',
         accentHex: '#D1A064',
+        photoFilter: 'none',
       },
       {
         id: 'eye03-noir',
@@ -400,6 +433,7 @@ export const CATALOG: Product[] = [
         hex: '#191A1D',
         secondaryHex: '#0C0D0F',
         accentHex: '#C5C3BC',
+        photoFilter: 'saturate(0.15) contrast(1.16) brightness(0.94)',
       },
     ],
     stock: 8,
@@ -412,6 +446,7 @@ export const CATALOG: Product[] = [
   {
     id: 'mv-lth-01',
     sku: 'MV-LTH-01',
+    imageFile: 'prod_lth_01.webp',
     category: 'Leather Goods',
     name: {
       en: 'Monolith Box-Calf Architectural Tote',
@@ -447,6 +482,7 @@ export const CATALOG: Product[] = [
         hex: '#1C1C1F',
         secondaryHex: '#111113',
         accentHex: '#B6A281',
+        photoFilter: 'none',
       },
       {
         id: 'lth01-sienna',
@@ -455,6 +491,7 @@ export const CATALOG: Product[] = [
         hex: '#9B4829',
         secondaryHex: '#71321B',
         accentHex: '#D8B78E',
+        photoFilter: 'sepia(0.38) saturate(1.45) brightness(1.06)',
       },
       {
         id: 'lth01-sand',
@@ -463,6 +500,7 @@ export const CATALOG: Product[] = [
         hex: '#B8AEA0',
         secondaryHex: '#93897C',
         accentHex: '#4E473F',
+        photoFilter: 'sepia(0.16) brightness(1.12) contrast(0.92)',
       },
     ],
     stock: 5,
@@ -474,6 +512,7 @@ export const CATALOG: Product[] = [
   {
     id: 'mv-lth-02',
     sku: 'MV-LTH-02',
+    imageFile: 'prod_lth_02.webp',
     category: 'Leather Goods',
     name: {
       en: 'Nomad Full-Grain Weekender 48H',
@@ -509,6 +548,7 @@ export const CATALOG: Product[] = [
         hex: '#364538',
         secondaryHex: '#232E25',
         accentHex: '#C8A972',
+        photoFilter: 'none',
       },
       {
         id: 'lth02-noir',
@@ -517,6 +557,7 @@ export const CATALOG: Product[] = [
         hex: '#1E1F22',
         secondaryHex: '#121316',
         accentHex: '#9C968A',
+        photoFilter: 'saturate(0.18) contrast(1.14) brightness(0.92)',
       },
       {
         id: 'lth02-sienna',
@@ -525,6 +566,7 @@ export const CATALOG: Product[] = [
         hex: '#9A4B2B',
         secondaryHex: '#6F331B',
         accentHex: '#D8B888',
+        photoFilter: 'hue-rotate(-34deg) saturate(1.25) brightness(1.04)',
       },
     ],
     stock: 3,
@@ -537,6 +579,7 @@ export const CATALOG: Product[] = [
   {
     id: 'mv-obj-01',
     sku: 'MV-OBJ-01',
+    imageFile: 'prod_obj_01.webp',
     category: 'Objects',
     name: {
       en: 'Cast Travertine & Bronze Incense Vessel',
@@ -572,6 +615,7 @@ export const CATALOG: Product[] = [
         hex: '#D4C8B4',
         secondaryHex: '#B3A48D',
         accentHex: '#8C6A3E',
+        photoFilter: 'none',
       },
       {
         id: 'obj01-noir',
@@ -580,6 +624,7 @@ export const CATALOG: Product[] = [
         hex: '#2B2B2E',
         secondaryHex: '#1A1A1D',
         accentHex: '#B79764',
+        photoFilter: 'saturate(0.32) contrast(1.18) brightness(0.84)',
       },
     ],
     stock: 14,
@@ -590,6 +635,7 @@ export const CATALOG: Product[] = [
   {
     id: 'mv-obj-02',
     sku: 'MV-OBJ-02',
+    imageFile: 'prod_obj_02.webp',
     category: 'Objects',
     name: {
       en: 'Brushed Steel Desk Monolith Tray',
@@ -625,6 +671,7 @@ export const CATALOG: Product[] = [
         hex: '#BFC2C7',
         secondaryHex: '#8E9299',
         accentHex: '#4E5158',
+        photoFilter: 'none',
       },
       {
         id: 'obj02-gold',
@@ -633,6 +680,7 @@ export const CATALOG: Product[] = [
         hex: '#CBB17D',
         secondaryHex: '#9C8352',
         accentHex: '#594A2E',
+        photoFilter: 'sepia(0.28) saturate(1.24) brightness(1.02)',
       },
     ],
     stock: 0,
@@ -645,6 +693,7 @@ export const CATALOG: Product[] = [
   {
     id: 'mv-frg-01',
     sku: 'MV-FRG-01',
+    imageFile: 'prod_frg_01.webp',
     category: 'Fragrance',
     name: {
       en: 'N°01 Hinoki & Wet Concrete Extrait',
@@ -680,6 +729,7 @@ export const CATALOG: Product[] = [
         hex: '#607160',
         secondaryHex: '#3E4B3E',
         accentHex: '#D8CEBE',
+        photoFilter: 'none',
       },
       {
         id: 'frg01-sand',
@@ -688,6 +738,7 @@ export const CATALOG: Product[] = [
         hex: '#D5CBB9',
         secondaryHex: '#B2A690',
         accentHex: '#3E4B3E',
+        photoFilter: 'saturate(0.75) brightness(1.05)',
       },
     ],
     stock: 18,
@@ -699,6 +750,7 @@ export const CATALOG: Product[] = [
   {
     id: 'mv-frg-02',
     sku: 'MV-FRG-02',
+    imageFile: 'prod_frg_02.webp',
     category: 'Fragrance',
     name: {
       en: 'N°04 Smoked Fig & Saddle Leather',
@@ -734,6 +786,7 @@ export const CATALOG: Product[] = [
         hex: '#9A4B2B',
         secondaryHex: '#692E17',
         accentHex: '#D8B889',
+        photoFilter: 'none',
       },
       {
         id: 'frg02-noir',
@@ -742,6 +795,7 @@ export const CATALOG: Product[] = [
         hex: '#222226',
         secondaryHex: '#111114',
         accentHex: '#C7A670',
+        photoFilter: 'saturate(0.3) contrast(1.16) brightness(0.9)',
       },
     ],
     stock: 12,

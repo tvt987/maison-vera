@@ -1,12 +1,17 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { ArrowUpRight, Layers, Plus } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
-import { PRODUCT_BY_ID } from '../data/catalog';
+import { getMediaUrl, PRODUCT_BY_ID } from '../data/catalog';
 import { t } from '../data/i18n';
 import { LOOKBOOKS } from '../data/lookbooks';
+import { atelierAudio } from '../engines/atelierAudio';
 import { formatMoney } from '../engines/currency';
 import { LookbookArt } from './LookbookArt';
-import { ProductArt } from './ProductArt';
+import { ProductMedia } from './ProductMedia';
+
+gsap.registerPlugin(ScrollTrigger);
 
 export const EditorialLookbook: React.FC = () => {
   const {
@@ -19,6 +24,8 @@ export const EditorialLookbook: React.FC = () => {
 
   const [activeLookIdx, setActiveLookIdx] = useState(0);
   const [activePinIndex, setActivePinIndex] = useState<'01' | '02' | '03'>('01');
+  const [imgFailed, setImgFailed] = useState<Record<string, boolean>>({});
+  const plateRef = useRef<HTMLDivElement | null>(null);
 
   const copy = t(locale);
   const look = LOOKBOOKS[activeLookIdx];
@@ -31,6 +38,30 @@ export const EditorialLookbook: React.FC = () => {
     0
   );
   const bundleFinalUsd = Math.round(bundleRetailUsd * (1 - look.bundleDiscountRate));
+
+  // Subtle GSAP editorial shutter unveil on plate switch or scroll entry
+  useEffect(() => {
+    const el = plateRef.current;
+    if (!el) return;
+    const prefersReduced =
+      window.matchMedia &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReduced) return;
+
+    const ctx = gsap.context(() => {
+      gsap.fromTo(
+        el,
+        { clipPath: 'inset(6% 0% 0% 0%)', scale: 1.03 },
+        {
+          clipPath: 'inset(0% 0% 0% 0%)',
+          scale: 1,
+          duration: 0.72,
+          ease: 'power3.out',
+        }
+      );
+    }, el);
+    return () => ctx.revert();
+  }, [activeLookIdx]);
 
   return (
     <section
@@ -63,6 +94,7 @@ export const EditorialLookbook: React.FC = () => {
                   aria-selected={selected}
                   data-testid={`lookbook-tab-${item.id}`}
                   onClick={() => {
+                    atelierAudio.playShutter();
                     setActiveLookIdx(idx);
                     setActivePinIndex('01');
                   }}
@@ -84,24 +116,53 @@ export const EditorialLookbook: React.FC = () => {
           </div>
         </div>
 
-        {/* Interactive Lookbook Plate Grid */}
+        {/* Interactive Campaign Lookbook Grid */}
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-          {/* Left: Interactive Editorial SVG Plate with Pulsing Numbered Hotspots */}
+          {/* Left: Real High-Fashion Campaign Photography Plate with Glass Hotspot Pins */}
           <div
             data-cursor="SHOP LOOK"
-            className="relative overflow-hidden border border-[var(--hairline)] bg-[var(--studio-bg)] lg:col-span-7"
+            className="relative overflow-hidden border border-[var(--hairline)] bg-[var(--studio-bg)] lg:col-span-6"
           >
-            <div className="relative aspect-[600/720] w-full max-h-[700px]">
-              <LookbookArt artKey={look.artKey} />
+            <div
+              ref={plateRef}
+              className="relative aspect-[3/4] w-full overflow-hidden"
+            >
+              {imgFailed[look.id] ? (
+                <LookbookArt artKey={look.artKey} />
+              ) : (
+                <img
+                  key={look.imageFile}
+                  src={getMediaUrl(look.imageFile)}
+                  alt={look.title[locale]}
+                  loading="eager"
+                  decoding="async"
+                  onError={() =>
+                    setImgFailed((prev) => ({ ...prev, [look.id]: true }))
+                  }
+                  className="h-full w-full object-cover object-top transition-transform duration-700 ease-out hover:scale-[1.025]"
+                />
+              )}
+
+              {/* Subtle bottom vignette for crisp stamp legibility */}
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-black/15"
+              />
 
               {/* Top Editorial Stamp Overlay */}
-              <div className="pointer-events-none absolute left-5 top-5 flex items-center gap-3 border border-black/15 bg-[#FDFBF7]/90 px-3 py-1.5 font-mono-tech text-[10px] uppercase tracking-[0.2em] text-[#111111] backdrop-blur-sm">
+              <div className="pointer-events-none absolute left-5 top-5 flex items-center gap-3 border border-white/25 bg-[#111111]/65 px-3 py-1.5 font-mono-tech text-[10px] uppercase tracking-[0.2em] text-[#F6F3ED] backdrop-blur-md">
                 <span>{look.plateCode}</span>
-                <span className="opacity-40">|</span>
+                <span className="opacity-45">|</span>
                 <span>{look.seasonStamp}</span>
               </div>
 
-              {/* Pulsing Numbered Hotspot Pins (01, 02, 03) */}
+              {/* Bottom Archival Caption */}
+              <div className="pointer-events-none absolute bottom-5 left-5 right-5 flex items-center justify-between font-mono-tech text-[10px] uppercase tracking-[0.2em] text-[#F6F3ED]/90">
+                <span>{look.architectureRef[locale]}</span>
+                <span className="hidden sm:inline">HASSELBLAD 100MP</span>
+              </div>
+
+              {/* Pulsing Glassmorphic Numbered Hotspot Pins (01, 02, 03) */}
               {look.hotspots.map((spot) => {
                 const isActive = spot.index === activePinIndex;
                 return (
@@ -109,16 +170,19 @@ export const EditorialLookbook: React.FC = () => {
                     key={`${look.id}-${spot.index}`}
                     type="button"
                     data-testid={`lookbook-pin-${spot.index}`}
-                    onClick={() => setActivePinIndex(spot.index)}
+                    onClick={() => {
+                      atelierAudio.playDetent();
+                      setActivePinIndex(spot.index);
+                    }}
                     style={{
                       left: `${spot.xPercent}%`,
                       top: `${spot.yPercent}%`,
                     }}
                     aria-label={`${spot.index}: ${spot.note[locale]}`}
-                    className={`hotspot-pulse absolute -translate-x-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full border font-mono-tech text-[11px] font-medium transition-transform duration-200 hover:scale-110 ${
+                    className={`hotspot-pulse absolute -translate-x-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full border font-mono-tech text-[11px] font-medium backdrop-blur-md transition-transform duration-200 hover:scale-110 ${
                       isActive
-                        ? 'z-20 scale-110 border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-contrast)] shadow-lg'
-                        : 'z-10 border-[#111111] bg-[#FDFBF7]/95 text-[#111111]'
+                        ? 'z-20 scale-110 border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-contrast)] shadow-xl'
+                        : 'z-10 border-white/75 bg-[#111111]/55 text-[#FDFBF7] shadow-lg'
                     }`}
                   >
                     {spot.index}
@@ -129,7 +193,7 @@ export const EditorialLookbook: React.FC = () => {
           </div>
 
           {/* Right: Editorial Plate Dossier + Active Hotspot Detail + Shop Complete Look Bundle CTA */}
-          <div className="flex flex-col justify-between border border-[var(--hairline)] bg-[var(--surface)] p-6 sm:p-8 lg:col-span-5">
+          <div className="flex flex-col justify-between border border-[var(--hairline)] bg-[var(--surface)] p-6 sm:p-8 lg:col-span-6">
             <div>
               <div className="flex items-center justify-between border-b border-[var(--hairline)] pb-4">
                 <span className="font-mono-tech text-[10px] uppercase tracking-[0.2em] text-[var(--ink-muted)]">
@@ -160,8 +224,8 @@ export const EditorialLookbook: React.FC = () => {
                   </div>
 
                   <div className="flex items-center gap-4">
-                    <div className="h-24 w-20 shrink-0 border border-[var(--hairline)] bg-[var(--studio-bg)] p-1">
-                      <ProductArt
+                    <div className="h-24 w-20 shrink-0 overflow-hidden border border-[var(--hairline)] bg-[var(--studio-bg)]">
+                      <ProductMedia
                         product={activeProduct}
                         colorway={activeProduct.colorways[0]}
                       />
@@ -218,14 +282,17 @@ export const EditorialLookbook: React.FC = () => {
                     <button
                       key={spot.index}
                       type="button"
-                      onClick={() => setActivePinIndex(spot.index)}
+                      onClick={() => {
+                        atelierAudio.playDetent();
+                        setActivePinIndex(spot.index);
+                      }}
                       className={`flex w-full items-center justify-between border px-3.5 py-2.5 text-left transition-colors ${
                         active
                           ? 'border-[var(--accent)] bg-[var(--accent)]/8'
                           : 'border-[var(--hairline)] bg-transparent hover:border-[var(--hairline-strong)]'
                       }`}
                     >
-                      <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex min-w-0 items-center gap-3">
                         <span
                           className={`font-mono-tech text-[10px] ${
                             active ? 'text-[var(--accent)]' : 'text-[var(--ink-muted)]'

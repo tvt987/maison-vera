@@ -47,6 +47,16 @@ export const PROMO_RULES: Record<PromoCodeId, PromoRule> = {
       vi: 'Giảm $200 Khách VIP cho đơn từ $1,000',
     },
   },
+  PRIVATE10: {
+    code: 'PRIVATE10',
+    type: 'percent',
+    value: 10,
+    minSpendUsd: 0,
+    description: {
+      en: '10% Private Vault Member Invitation Privilege',
+      vi: 'Giảm 10% Đặc Quyền Thành Viên Private Vault',
+    },
+  },
 };
 
 function round2(value: number): number {

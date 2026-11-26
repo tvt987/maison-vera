@@ -33,11 +33,13 @@ export interface ProductColorway {
   hex: string;
   secondaryHex: string;
   accentHex: string;
+  photoFilter?: string;
 }
 
 export interface Product {
   id: string;
   sku: string;
+  imageFile: string;
   category: ProductCategory;
   name: LocalizedText;
   subtitle: LocalizedText;
@@ -79,6 +81,7 @@ export interface LookbookPlate {
   id: string;
   plateCode: string;
   seasonStamp: string;
+  imageFile: string;
   title: LocalizedText;
   editorialNote: LocalizedText;
   architectureRef: LocalizedText;
@@ -113,7 +116,7 @@ export interface CartItem {
   stylistBundleId?: string;
 }
 
-export type PromoCodeId = 'VERA15' | 'ATELIER50' | 'VIP200';
+export type PromoCodeId = 'VERA15' | 'ATELIER50' | 'VIP200' | 'PRIVATE10';
 
 export interface PromoRule {
   code: PromoCodeId;

@@ -1,14 +1,22 @@
 import React, { useState } from 'react';
 import {
   ArrowDownRight,
+  Box,
   Camera,
+  Image as ImageIcon,
   Plus,
   RotateCcw,
   Sparkles,
   SunMedium,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
-import { HERO_FRAME_FINISHES, HERO_LENS_TINTS, PRODUCT_BY_ID } from '../data/catalog';
+import {
+  getMediaUrl,
+  HERO_EDITORIAL_IMAGE,
+  HERO_FRAME_FINISHES,
+  HERO_LENS_TINTS,
+  PRODUCT_BY_ID,
+} from '../data/catalog';
 import { t } from '../data/i18n';
 import { atelierAudio } from '../engines/atelierAudio';
 import { formatMoney } from '../engines/currency';
@@ -31,7 +39,10 @@ export const HeroShowcase: React.FC = () => {
     hasActiveOverlay,
   } = useStore();
 
+  const [stageMode, setStageMode] = useState<'campaign' | '3d'>('campaign');
+  const [parallax, setParallax] = useState({ x: 0, y: 0 });
   const [resetSignal, setResetSignal] = useState(0);
+
   const copy = t(locale);
   const heroProduct = PRODUCT_BY_ID['mv-eye-01'];
 
@@ -54,6 +65,14 @@ export const HeroShowcase: React.FC = () => {
     { id: 'gallery', label: copy.lightGallery, dot: '#DCE3EC' },
     { id: 'nocturne', label: copy.lightNocturne, dot: '#5DA6B8' },
   ];
+
+  const handleCampaignMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (stageMode !== 'campaign') return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const nx = ((e.clientX - rect.left) / rect.width - 0.5) * -14;
+    const ny = ((e.clientY - rect.top) / rect.height - 0.5) * -10;
+    setParallax({ x: nx, y: ny });
+  };
 
   return (
     <section
@@ -221,49 +240,172 @@ export const HeroShowcase: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Interactive 3D Studio Stage */}
-        <div className="archival-grid relative flex min-h-[450px] flex-col justify-between bg-[var(--studio-bg)] sm:min-h-[560px] lg:col-span-7 lg:min-h-[680px]">
-          {/* Top Stage Telemetry + Reset */}
-          <div className="relative z-20 flex flex-wrap items-center justify-between gap-2 px-5 pt-5 sm:px-7">
-            <div className="flex flex-wrap items-center gap-1.5 font-mono-tech text-[10px] tracking-[0.16em] text-[var(--ink-muted)]">
-              <span className="border border-[var(--hairline-strong)] bg-[var(--surface)]/85 px-2.5 py-1 backdrop-blur-sm">
-                {copy.heroSpecWeight}
-              </span>
-              <span className="border border-[var(--hairline-strong)] bg-[var(--surface)]/85 px-2.5 py-1 backdrop-blur-sm">
-                {copy.heroSpecOrigin}
-              </span>
-              <span className="hidden border border-[var(--hairline-strong)] bg-[var(--surface)]/85 px-2.5 py-1 backdrop-blur-sm sm:inline">
-                {copy.heroSpecOptics}
-              </span>
+        {/* Right Dual-Stage Showcase: CAMPAIGN EDITORIAL <-> 3D INTERACTIVE STUDIO */}
+        <div className="archival-grid relative flex min-h-[470px] flex-col justify-between overflow-hidden bg-[var(--studio-bg)] sm:min-h-[580px] lg:col-span-7 lg:min-h-[680px]">
+          {/* Top Dual-Stage Mode Switcher + Telemetry */}
+          <div className="relative z-30 flex flex-wrap items-center justify-between gap-2 px-5 pt-5 sm:px-7">
+            {/* Mode Pill Switcher */}
+            <div className="inline-flex border border-[var(--hairline-strong)] bg-[var(--surface)]/92 p-0.5 backdrop-blur-md">
+              <button
+                type="button"
+                data-testid="hero-mode-campaign"
+                onClick={() => {
+                  atelierAudio.playShutter();
+                  setStageMode('campaign');
+                }}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 font-mono-tech text-[10px] uppercase tracking-[0.16em] transition-colors ${
+                  stageMode === 'campaign'
+                    ? 'bg-[var(--ink)] text-[var(--surface)]'
+                    : 'text-[var(--ink)] hover:text-[var(--accent)]'
+                }`}
+              >
+                <ImageIcon size={12} strokeWidth={1.5} />
+                {copy.heroModeCampaign}
+              </button>
+              <button
+                type="button"
+                data-testid="hero-mode-3d"
+                onClick={() => {
+                  atelierAudio.playShutter();
+                  setStageMode('3d');
+                }}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 font-mono-tech text-[10px] uppercase tracking-[0.16em] transition-colors ${
+                  stageMode === '3d'
+                    ? 'bg-[var(--ink)] text-[var(--surface)]'
+                    : 'text-[var(--ink)] hover:text-[var(--accent)]'
+                }`}
+              >
+                <Box size={12} strokeWidth={1.5} />
+                {copy.heroMode3d}
+              </button>
             </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                atelierAudio.playShutter();
-                setHeroConfig((prev) => ({ ...prev, cameraPreset: 'runway' }));
-                setResetSignal((n) => n + 1);
-              }}
-              className="inline-flex items-center gap-1.5 border border-[var(--hairline-strong)] bg-[var(--surface)]/90 px-3 py-1 font-mono-tech text-[10px] uppercase tracking-[0.16em] text-[var(--ink)] backdrop-blur-sm transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+            <div className="flex items-center gap-1.5">
+              <span className="hidden border border-[var(--hairline-strong)] bg-[var(--surface)]/88 px-2.5 py-1.5 font-mono-tech text-[10px] tracking-[0.16em] text-[var(--ink)] backdrop-blur-md xl:inline">
+                {copy.heroCampaignTelemetry}
+              </span>
+              {stageMode === '3d' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    atelierAudio.playShutter();
+                    setHeroConfig((prev) => ({ ...prev, cameraPreset: 'runway' }));
+                    setResetSignal((n) => n + 1);
+                  }}
+                  className="inline-flex items-center gap-1.5 border border-[var(--hairline-strong)] bg-[var(--surface)]/92 px-3 py-1.5 font-mono-tech text-[10px] uppercase tracking-[0.16em] text-[var(--ink)] backdrop-blur-md transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                >
+                  <RotateCcw size={12} strokeWidth={1.5} />
+                  {copy.heroResetView}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Center Visual Stage: Full-Bleed Hasselblad Campaign Photo OR Live 3D Studio */}
+          <div
+            onMouseMove={handleCampaignMove}
+            onMouseLeave={() => setParallax({ x: 0, y: 0 })}
+            className="relative flex-1"
+          >
+            {/* Stage A: Hasselblad Editorial Campaign Photography (Default First Impression) */}
+            <div
+              data-testid="hero-campaign-stage"
+              data-cursor="EXPLORE"
+              className={`absolute inset-0 -top-16 overflow-hidden transition-opacity duration-500 ${
+                stageMode === 'campaign'
+                  ? 'z-10 opacity-100'
+                  : 'pointer-events-none z-0 opacity-0'
+              }`}
             >
-              <RotateCcw size={12} strokeWidth={1.5} />
-              {copy.heroResetView}
-            </button>
+              <div
+                className="h-full w-full transition-transform duration-300 ease-out"
+                style={{
+                  transform: `translate3d(${parallax.x}px, ${parallax.y}px, 0) scale(1.04)`,
+                }}
+              >
+                <img
+                  src={getMediaUrl(HERO_EDITORIAL_IMAGE)}
+                  alt="VÉRA-01 Monolith Titanium Eyewear on Roman Travertine Plinth"
+                  loading="eager"
+                  decoding="async"
+                  style={{
+                    filter:
+                      activeFinish.photoFilter !== 'none'
+                        ? activeFinish.photoFilter
+                        : undefined,
+                  }}
+                  className="animate-ken-burns h-full w-full object-cover object-center transition-[filter] duration-500"
+                />
+              </div>
+
+              {/* Subtle Editorial Vignette & Active Finish/Lens Overlay Stamp */}
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/38 via-transparent to-black/14"
+              />
+
+              <div className="absolute bottom-5 left-5 right-5 z-20 flex flex-wrap items-end justify-between gap-3 sm:left-7 sm:right-7">
+                <div className="border border-white/25 bg-[#111111]/68 px-3.5 py-2 text-[#F6F3ED] backdrop-blur-md">
+                  <p className="font-mono-tech text-[9px] uppercase tracking-[0.22em] text-[#D4B483]">
+                    {copy.heroCampaignCaption}
+                  </p>
+                  <div className="mt-1 flex items-center gap-2.5 font-mono-tech text-[11px]">
+                    <span className="inline-flex items-center gap-1.5">
+                      <span
+                        className="h-2.5 w-2.5 rounded-full border border-white/40"
+                        style={{ backgroundColor: activeFinish.metalHex }}
+                      />
+                      {activeFinish.label[locale]}
+                    </span>
+                    <span className="opacity-45">/</span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <span
+                        className="h-2.5 w-2.5 rounded-full border border-white/40"
+                        style={{ backgroundColor: activeLens.hex }}
+                      />
+                      {activeLens.label[locale]}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    atelierAudio.playShutter();
+                    setStageMode('3d');
+                    setHeroConfig((prev) => ({ ...prev, cameraPreset: 'exploded' }));
+                  }}
+                  className="inline-flex items-center gap-2 border border-white/35 bg-[#FDFBF7]/92 px-3.5 py-2 font-mono-tech text-[10px] uppercase tracking-[0.18em] text-[#111111] backdrop-blur-md transition-colors hover:border-[var(--accent)] hover:bg-[var(--accent)] hover:text-white"
+                >
+                  <Box size={12} strokeWidth={1.6} />
+                  {copy.camExploded} 3D
+                </button>
+              </div>
+            </div>
+
+            {/* Stage B: Live Three.js PBR + Exploded CAD Studio */}
+            <div
+              data-testid="hero-3d-stage"
+              className={`absolute inset-0 transition-opacity duration-500 ${
+                stageMode === '3d'
+                  ? 'z-20 opacity-100'
+                  : 'pointer-events-none z-0 opacity-0'
+              }`}
+            >
+              {stageMode === '3d' && (
+                <Eyewear3DCanvas
+                  config={heroConfig}
+                  theme={theme}
+                  locale={locale}
+                  resetSignal={resetSignal}
+                  paused={hasActiveOverlay}
+                />
+              )}
+            </div>
           </div>
 
-          {/* 3D Canvas Viewport */}
-          <div className="relative flex-1">
-            <Eyewear3DCanvas
-              config={heroConfig}
-              theme={theme}
-              locale={locale}
-              resetSignal={resetSignal}
-              paused={hasActiveOverlay}
-            />
-          </div>
-
-          {/* Studio Controls Bar: 4 Camera Presets + 4 Lighting Moods */}
-          <div className="relative z-20 space-y-2.5 border-t border-[var(--hairline)] bg-[var(--surface)]/88 px-5 py-3.5 backdrop-blur-md sm:px-7">
+          {/* Studio Controls Bar: 4 Camera Presets + 4 Lighting Moods (Auto-Engages 3D Mode) */}
+          <div className="relative z-30 space-y-2.5 border-t border-[var(--hairline)] bg-[var(--surface)]/92 px-5 py-3.5 backdrop-blur-md sm:px-7">
             <div className="flex flex-wrap items-center justify-between gap-2">
               {/* Camera Presets */}
               <div className="flex flex-wrap items-center gap-1.5">
@@ -272,7 +414,8 @@ export const HeroShowcase: React.FC = () => {
                   {copy.heroCameraPresetLabel}
                 </span>
                 {cameraPresets.map((preset) => {
-                  const active = heroConfig.cameraPreset === preset.id;
+                  const active =
+                    stageMode === '3d' && heroConfig.cameraPreset === preset.id;
                   return (
                     <button
                       key={preset.id}
@@ -280,6 +423,7 @@ export const HeroShowcase: React.FC = () => {
                       data-testid={`cam-preset-${preset.id}`}
                       onClick={() => {
                         atelierAudio.playShutter();
+                        setStageMode('3d');
                         setHeroConfig((prev) => ({
                           ...prev,
                           cameraPreset: preset.id,
@@ -304,7 +448,8 @@ export const HeroShowcase: React.FC = () => {
                   {copy.heroLightingLabel}
                 </span>
                 {lightingMoods.map((mood) => {
-                  const active = heroConfig.lightingMood === mood.id;
+                  const active =
+                    stageMode === '3d' && heroConfig.lightingMood === mood.id;
                   return (
                     <button
                       key={mood.id}
@@ -312,6 +457,7 @@ export const HeroShowcase: React.FC = () => {
                       data-testid={`lighting-mood-${mood.id}`}
                       onClick={() => {
                         atelierAudio.playDetent();
+                        setStageMode('3d');
                         setHeroConfig((prev) => ({
                           ...prev,
                           lightingMood: mood.id,
@@ -336,7 +482,9 @@ export const HeroShowcase: React.FC = () => {
 
             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--hairline)] pt-2">
               <span className="font-mono-tech text-[9.5px] tracking-[0.18em] text-[var(--ink-muted)]">
-                {copy.heroDragHint}
+                {stageMode === 'campaign'
+                  ? copy.heroCampaignCaption
+                  : copy.heroDragHint}
               </span>
               <button
                 type="button"
