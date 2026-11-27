@@ -3,6 +3,7 @@ import {
   Activity,
   AlertTriangle,
   Check,
+  Crosshair,
   Eye,
   Layers,
   Plus,
@@ -14,6 +15,12 @@ import { PRODUCT_BY_ID } from '../data/catalog';
 import { t } from '../data/i18n';
 import { atelierAudio } from '../engines/atelierAudio';
 import { formatMoney } from '../engines/currency';
+import {
+  ANSI_Z80_HORIZONTAL_PRISM_LIMIT_DELTA,
+  evaluateAllSabaeFrames,
+  SABAE_OPTICAL_FRAMES,
+  type FrameDecentrationEvaluation,
+} from '../engines/decentrationEngine';
 import {
   BLUE_LIGHT_STUDIO_SURCHARGE_USD,
   computeOpticalRxReport,
@@ -27,12 +34,14 @@ import type {
   EyePrescriptionInput,
   OpticalRxInput,
   RefractiveIndexId,
+  SabaeFrameSkuId,
 } from '../types/commerce';
 
 const FRAME_DIAMETER_OPTIONS = [
-  { mm: 48, label: '48 mm · Archival 04' },
-  { mm: 51, label: '51 mm · VÉRA-01 Monolith' },
-  { mm: 54, label: '54 mm · Solaire Shield' },
+  { mm: 46, bridgeMm: 21, sku: 'MV-EYE-04' as SabaeFrameSkuId, label: '46 mm · Panto 46 Ti' },
+  { mm: 48, bridgeMm: 21, sku: 'MV-EYE-03' as SabaeFrameSkuId, label: '48 mm · Archival 04' },
+  { mm: 51, bridgeMm: 20, sku: 'MV-EYE-01' as SabaeFrameSkuId, label: '51 mm · VÉRA-01 Monolith' },
+  { mm: 54, bridgeMm: 19, sku: 'MV-EYE-02' as SabaeFrameSkuId, label: '54 mm · Solaire Aviator' },
 ] as const;
 
 function buildLensCrossSectionPath(
@@ -77,13 +86,26 @@ export const OpticalRxLab: React.FC = () => {
   );
 
   const report = useMemo(() => computeOpticalRxReport(rxInput), [rxInput]);
+  const decentrationSuite = useMemo(
+    () => evaluateAllSabaeFrames(rxInput.pdMm, rxInput.od, rxInput.os),
+    [rxInput.pdMm, rxInput.od, rxInput.os]
+  );
+  const activeDecentration: FrameDecentrationEvaluation = useMemo(() => {
+    return (
+      decentrationSuite.evaluations.find(
+        (ev) => ev.frame.lensWidthMm === rxInput.lensDiameterMm
+      ) ?? decentrationSuite.evaluations[2]
+    );
+  }, [decentrationSuite, rxInput.lensDiameterMm]);
+
   const activeIndexId = selectedIndexOverride ?? report.recommendedIndex.id;
   const activeRow: IndexComparisonRow =
     report.comparisons.find((c) => c.spec.id === activeIndexId) ?? report.comparisons[0];
   const row150 = report.comparisons[0];
   const row174 = report.comparisons[3];
 
-  const baseFrame = PRODUCT_BY_ID['mv-eye-01'];
+  const baseFrame =
+    PRODUCT_BY_ID[activeDecentration.frame.productId] ?? PRODUCT_BY_ID['mv-eye-01'];
   const upgradeAddonUsd =
     activeRow.spec.surchargeUsd +
     (rxInput.blueLightFilterEnabled ? BLUE_LIGHT_STUDIO_SURCHARGE_USD : 0);
@@ -402,16 +424,21 @@ export const OpticalRxLab: React.FC = () => {
                 <span className="mb-2 block font-mono-tech text-[10px] uppercase tracking-[0.16em] text-[var(--ink-muted)]">
                   {copy.rxDiameterLabel}
                 </span>
-                <div className="grid grid-cols-3 gap-1.5">
+                <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
                   {FRAME_DIAMETER_OPTIONS.map((opt) => {
                     const active = rxInput.lensDiameterMm === opt.mm;
                     return (
                       <button
                         key={opt.mm}
                         type="button"
+                        data-testid={`rx-diameter-${opt.mm}`}
                         onClick={() => {
                           atelierAudio.playDetent();
-                          setRxInput((prev) => ({ ...prev, lensDiameterMm: opt.mm }));
+                          setRxInput((prev) => ({
+                            ...prev,
+                            lensDiameterMm: opt.mm,
+                            bridgeWidthMm: opt.bridgeMm,
+                          }));
                         }}
                         className={`border px-2 py-1.5 text-center font-mono-tech text-[10px] transition-colors ${
                           active
@@ -925,6 +952,344 @@ export const OpticalRxLab: React.FC = () => {
                   {formatMoney(totalCommissionUsd, currency)}
                 </span>
               </button>
+            </div>
+          </div>
+        </div>
+
+        {/* FULL-WIDTH EDITORIAL PANEL: Pupillary-Distance (PD) Decentration, Prentice's Rule Prism & Sabae Frame Fit Check */}
+        <div
+          data-testid="rx-decentration-panel"
+          className="mt-8 border border-[var(--hairline-strong)] bg-[var(--surface)] p-5 sm:p-6"
+        >
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-[var(--hairline)] pb-3">
+            <div className="flex items-center gap-2">
+              <Crosshair size={13} strokeWidth={1.6} className="text-[var(--accent)]" />
+              <span className="font-mono-tech text-[10px] uppercase tracking-[0.18em] text-[var(--ink)]">
+                {locale === 'en'
+                  ? 'PD OPTICAL DECENTRATION & PRENTICE RULE PRISM CHECK · SABAE TITANIUM FIT'
+                  : 'KIỂM ĐỊNH LỆCH TÂM PD & LĂNG KÍNH PRENTICE THEO GỌNG TITAN SABAE'}
+              </span>
+            </div>
+            <span className="font-mono-tech text-[10px] text-[var(--olive)]">
+              {locale === 'en' ? 'BEST MATCH FOR PD ' : 'TỐI ƯU NHẤT CHO PD '}
+              {rxInput.pdMm.toFixed(1)} MM:{' '}
+              <strong data-testid="decentration-best-frame">
+                {decentrationSuite.bestFrame.frame.shortLabel[locale]}
+              </strong>
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+            {/* Left 5 Cols: Optical Centration Schematic SVG + Guidance */}
+            <div className="flex flex-col justify-between gap-3 lg:col-span-5">
+              <svg
+                viewBox="0 0 600 172"
+                data-testid="rx-decentration-svg"
+                className="h-auto w-full border border-[var(--hairline)] bg-[var(--bg)] text-[var(--ink)]"
+                role="img"
+                aria-label={`Optical decentration schematic for ${activeDecentration.frame.name.en} with ${activeDecentration.decentrationPerEyeMm}mm decentration and ${activeDecentration.peakPrismDiopters} prism diopters`}
+              >
+                {(() => {
+                  const scale = 2.65; // px per mm — spacious clearance above & below even for 54mm Aviator
+                  const halfGcdPx = (activeDecentration.framePdMm / 2) * scale;
+                  const halfPdPx = (rxInput.pdMm / 2) * scale;
+                  const lensW = activeDecentration.frame.lensWidthMm * scale;
+                  const lensH = lensW * 0.62;
+                  const cy = 86;
+                  const leftGeoX = 300 - halfGcdPx;
+                  const rightGeoX = 300 + halfGcdPx;
+                  const leftPupilX = 300 - halfPdPx;
+                  const rightPupilX = 300 + halfPdPx;
+                  const blankRadius = Math.min(48, (activeDecentration.minimumBlankSizeMm / 2) * (scale * 0.48));
+
+                  return (
+                    <g>
+                      {/* Center Nasal Axis */}
+                      <line
+                        x1="300"
+                        y1="30"
+                        x2="300"
+                        y2="142"
+                        stroke="currentColor"
+                        strokeOpacity="0.2"
+                        strokeDasharray="3 3"
+                      />
+                      {/* Bridge bar (DBL) */}
+                      <line
+                        x1={leftGeoX + lensW / 2}
+                        y1={cy - 6}
+                        x2={rightGeoX - lensW / 2}
+                        y2={cy - 6}
+                        stroke="currentColor"
+                        strokeWidth="2.4"
+                      />
+                      {/* Uncut MBS Blank Reference Ring around Right Optical Center */}
+                      <circle
+                        cx={rightPupilX}
+                        cy={cy}
+                        r={blankRadius}
+                        fill="var(--accent)"
+                        fillOpacity="0.07"
+                        stroke="var(--accent)"
+                        strokeOpacity="0.48"
+                        strokeDasharray="4 3"
+                        strokeWidth="1.1"
+                      />
+                      {/* Left & Right Frame Apertures */}
+                      <rect
+                        x={leftGeoX - lensW / 2}
+                        y={cy - lensH / 2}
+                        width={lensW}
+                        height={lensH}
+                        rx={activeDecentration.frame.lensWidthMm <= 48 ? 24 : 12}
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      />
+                      <rect
+                        x={rightGeoX - lensW / 2}
+                        y={cy - lensH / 2}
+                        width={lensW}
+                        height={lensH}
+                        rx={activeDecentration.frame.lensWidthMm <= 48 ? 24 : 12}
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      />
+                      {/* Geometric Centers (Boxed Center) */}
+                      <circle cx={leftGeoX} cy={cy} r="3" fill="currentColor" opacity="0.45" />
+                      <circle cx={rightGeoX} cy={cy} r="3" fill="currentColor" opacity="0.45" />
+                      {/* Pupil Optical Centers (Client PD) */}
+                      <circle cx={leftPupilX} cy={cy} r="4.5" fill="var(--accent)" />
+                      <circle cx={rightPupilX} cy={cy} r="4.5" fill="var(--accent)" />
+                      {/* Decentration Offset Vector */}
+                      <line
+                        x1={leftGeoX}
+                        y1={cy}
+                        x2={leftPupilX}
+                        y2={cy}
+                        stroke="var(--accent)"
+                        strokeWidth="2.2"
+                      />
+                      <line
+                        x1={rightGeoX}
+                        y1={cy}
+                        x2={rightPupilX}
+                        y2={cy}
+                        stroke="var(--accent)"
+                        strokeWidth="2.2"
+                      />
+                      {/* Top GCD Dimension & Bottom Client PD Dimension (Clear of frame apertures) */}
+                      <text
+                        x="300"
+                        y="19"
+                        textAnchor="middle"
+                        className="font-mono-tech"
+                        fontSize="10"
+                        fill="currentColor"
+                        opacity="0.78"
+                      >
+                        FRAME GCD (A {activeDecentration.frame.lensWidthMm} + DBL {activeDecentration.frame.bridgeWidthMm}) = {activeDecentration.framePdMm} MM
+                      </text>
+                      <text
+                        x="300"
+                        y="160"
+                        textAnchor="middle"
+                        className="font-mono-tech"
+                        fontSize="10"
+                        fill="var(--accent)"
+                      >
+                        CLIENT PD {rxInput.pdMm.toFixed(1)} MM · DEC {activeDecentration.decentrationPerEyeMm >= 0 ? '+' : ''}
+                        {activeDecentration.decentrationPerEyeMm.toFixed(2)} MM/EYE · MBS {activeDecentration.minimumBlankSizeMm.toFixed(1)} MM
+                      </text>
+                    </g>
+                  );
+                })()}
+              </svg>
+
+              <p className="border-l-2 border-[var(--accent)] pl-3 text-xs leading-relaxed text-[var(--ink-muted)]">
+                {activeDecentration.verdictGuidance[locale]}
+              </p>
+            </div>
+
+            {/* Right 7 Cols: 4 Telemetry Readouts + 4-Frame Sabae Comparison Matrix */}
+            <div className="flex flex-col justify-between gap-4 lg:col-span-7">
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                <div className="border border-[var(--hairline)] bg-[var(--bg)] px-3 py-2.5">
+                  <span className="block font-mono-tech text-[8.5px] uppercase tracking-[0.14em] text-[var(--ink-muted)]">
+                    Dec = ((A+DBL)-PD)/2
+                  </span>
+                  <span
+                    data-testid="decentration-active-dec"
+                    className="mt-0.5 block font-mono-tech text-sm font-medium text-[var(--ink)]"
+                  >
+                    {activeDecentration.decentrationPerEyeMm >= 0 ? '+' : ''}
+                    {activeDecentration.decentrationPerEyeMm.toFixed(2)} mm
+                  </span>
+                  <span className="font-mono-tech text-[8.5px] uppercase text-[var(--ink-muted)]">
+                    {activeDecentration.decentrationDirection === 'zero-centered'
+                      ? 'ZERO BULLSEYE'
+                      : activeDecentration.decentrationDirection === 'inward-nasal'
+                      ? 'NASAL INWARD'
+                      : 'TEMPORAL OUT'}
+                  </span>
+                </div>
+
+                <div className="border border-[var(--hairline)] bg-[var(--bg)] px-3 py-2.5">
+                  <span className="block font-mono-tech text-[8.5px] uppercase tracking-[0.14em] text-[var(--ink-muted)]">
+                    PRENTICE Δ = c·|F|
+                  </span>
+                  <span
+                    data-testid="decentration-active-prism"
+                    className="mt-0.5 block font-mono-tech text-sm font-medium text-[var(--accent)]"
+                  >
+                    {activeDecentration.peakPrismDiopters.toFixed(2)} Δ
+                  </span>
+                  <span className="font-mono-tech text-[8.5px] uppercase text-[var(--ink-muted)]">
+                    {activeDecentration.prismBaseDirection === 'none'
+                      ? 'ZERO PRISM'
+                      : `${activeDecentration.prismBaseDirection.toUpperCase()} · ANSI ≤${ANSI_Z80_HORIZONTAL_PRISM_LIMIT_DELTA}Δ`}
+                  </span>
+                </div>
+
+                <div className="border border-[var(--hairline)] bg-[var(--bg)] px-3 py-2.5">
+                  <span className="block font-mono-tech text-[8.5px] uppercase tracking-[0.14em] text-[var(--ink-muted)]">
+                    MIN BLANK (MBS)
+                  </span>
+                  <span
+                    data-testid="decentration-active-mbs"
+                    className="mt-0.5 block font-mono-tech text-sm font-medium text-[var(--ink)]"
+                  >
+                    {activeDecentration.minimumBlankSizeMm.toFixed(1)} mm
+                  </span>
+                  <span className="font-mono-tech text-[8.5px] uppercase text-[var(--ink-muted)]">
+                    {activeDecentration.fitsStandard70mmBlank
+                      ? `${activeDecentration.recommendedStockBlankMm}MM STOCK OK`
+                      : `${activeDecentration.recommendedStockBlankMm}MM CUSTOM`}
+                  </span>
+                </div>
+
+                <div className="border border-[var(--hairline)] bg-[var(--bg)] px-3 py-2.5">
+                  <span className="block font-mono-tech text-[8.5px] uppercase tracking-[0.14em] text-[var(--ink-muted)]">
+                    OPTICAL VERDICT
+                  </span>
+                  <span
+                    data-testid="decentration-active-verdict"
+                    className={`mt-0.5 block text-[11px] font-medium leading-tight ${
+                      activeDecentration.verdict === 'zero-prism-optimal'
+                        ? 'text-[var(--olive)]'
+                        : activeDecentration.verdict === 'sabae-centration-advised'
+                        ? 'text-[var(--accent)]'
+                        : 'text-[#B83227]'
+                    }`}
+                  >
+                    {activeDecentration.verdictLabel[locale]}
+                  </span>
+                  <span className="font-mono-tech text-[8.5px] text-[var(--ink-muted)]">
+                    SCORE {activeDecentration.opticalFitScore}/100
+                  </span>
+                </div>
+              </div>
+
+              {/* 4-Frame Sabae Titanium Decentration Comparison Matrix */}
+              <div
+                data-testid="rx-decentration-matrix"
+                className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4"
+              >
+                {decentrationSuite.evaluations.map((ev) => {
+                  const selected = ev.frame.sku === activeDecentration.frame.sku;
+                  const isBest = ev.frame.sku === decentrationSuite.bestFrame.frame.sku;
+                  return (
+                    <button
+                      key={ev.frame.sku}
+                      type="button"
+                      data-testid={`decentration-card-${ev.frame.sku}`}
+                      onClick={() => {
+                        atelierAudio.playDetent();
+                        const spec = SABAE_OPTICAL_FRAMES.find((f) => f.sku === ev.frame.sku);
+                        if (spec) {
+                          setRxInput((prev) => ({
+                            ...prev,
+                            lensDiameterMm: spec.lensWidthMm,
+                            bridgeWidthMm: spec.bridgeWidthMm,
+                          }));
+                        }
+                      }}
+                      className={`flex flex-col justify-between border p-3 text-left transition-all ${
+                        selected
+                          ? 'border-[var(--ink)] bg-[var(--ink)] text-[var(--surface)]'
+                          : 'border-[var(--hairline)] bg-[var(--bg)] text-[var(--ink)] hover:border-[var(--hairline-strong)]'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between gap-1">
+                          <span
+                            className={`font-mono-tech text-[10px] font-medium ${
+                              selected ? 'text-[#D4B483]' : 'text-[var(--accent)]'
+                            }`}
+                          >
+                            {ev.frame.lensWidthMm}□{ev.frame.bridgeWidthMm}
+                          </span>
+                          {isBest && (
+                            <span
+                              className={`border px-1 py-0.5 font-mono-tech text-[7.5px] uppercase tracking-[0.1em] ${
+                                selected
+                                  ? 'border-[#D4B483]/60 text-[#D4B483]'
+                                  : 'border-[var(--olive)]/50 bg-[var(--olive)]/12 text-[var(--olive)]'
+                              }`}
+                            >
+                              {locale === 'en' ? 'BEST PD FIT' : 'HỢP PD NHẤT'}
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1 font-serif-editorial text-sm leading-snug">
+                          {ev.frame.shortLabel[locale]}
+                        </p>
+                        <dl className="mt-2 space-y-0.5 font-mono-tech text-[9.5px]">
+                          <div className="flex justify-between">
+                            <dt className="opacity-65">Dec</dt>
+                            <dd>
+                              {ev.decentrationPerEyeMm >= 0 ? '+' : ''}
+                              {ev.decentrationPerEyeMm.toFixed(1)} mm
+                            </dd>
+                          </div>
+                          <div className="flex justify-between">
+                            <dt className="opacity-65">Prism</dt>
+                            <dd>{ev.peakPrismDiopters.toFixed(2)} Δ</dd>
+                          </div>
+                          <div className="flex justify-between">
+                            <dt className="opacity-65">MBS</dt>
+                            <dd>{ev.minimumBlankSizeMm.toFixed(0)} mm</dd>
+                          </div>
+                        </dl>
+                      </div>
+                      <span
+                        className={`mt-2 block border-t border-current/15 pt-1.5 font-mono-tech text-[8.5px] uppercase tracking-[0.08em] ${
+                          selected
+                            ? 'text-[#D4B483]'
+                            : ev.verdict === 'zero-prism-optimal'
+                            ? 'text-[var(--olive)]'
+                            : ev.verdict === 'sabae-centration-advised'
+                            ? 'text-[var(--accent)]'
+                            : 'text-[#B83227]'
+                        }`}
+                      >
+                        {ev.verdict === 'zero-prism-optimal'
+                          ? locale === 'en'
+                            ? 'ZERO-PRISM SHARP'
+                            : 'CHUẨN KHÔNG LĂNG KÍNH'
+                          : ev.verdict === 'sabae-centration-advised'
+                          ? locale === 'en'
+                            ? 'LAB CENTRATION'
+                            : 'CĂN TÂM SABAE'
+                          : locale === 'en'
+                          ? 'HIGH DECENTRATION'
+                          : 'LỆCH TÂM CAO'}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>

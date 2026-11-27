@@ -19,6 +19,9 @@ const BespokeSizingLab = lazy(() =>
 const OpticalRxLab = lazy(() =>
   import('./components/OpticalRxLab').then((m) => ({ default: m.OpticalRxLab }))
 );
+const PolarizedGlareLab = lazy(() =>
+  import('./components/PolarizedGlareLab').then((m) => ({ default: m.PolarizedGlareLab }))
+);
 const EditorialLookbook = lazy(() =>
   import('./components/EditorialLookbook').then((m) => ({ default: m.EditorialLookbook }))
 );
@@ -170,6 +173,9 @@ const StorefrontShell: React.FC = () => {
         </Suspense>
         <Suspense fallback={<LabSectionFallback id="optical-rx-lab" label="LOADING OPTICAL RX SAGITTA LAB..." />}>
           <OpticalRxLab />
+        </Suspense>
+        <Suspense fallback={<LabSectionFallback id="polarized-glare-lab" label="CALIBRATING POLARIZED GLARE & AR LAB..." />}>
+          <PolarizedGlareLab />
         </Suspense>
         <Suspense fallback={<LabSectionFallback id="lookbook" label="LOADING EDITORIAL LOOKBOOK..." />}>
           <EditorialLookbook />

@@ -49,7 +49,7 @@ app.MapGet("/health", () => Results.Ok(new
 {
     status = "healthy",
     service = "maison-vera-optical-atelier-api",
-    version = "5.0.0",
+    version = "6.0.0",
     runtime = Environment.Version.ToString(),
     timestampUtc = DateTimeOffset.UtcNow
 }));
@@ -82,6 +82,41 @@ apiV1.MapPost("/optical/validate-rx", (ValidateRxHttpRequest? body) =>
 
     var analysis = SagittaOpticalCalculator.Analyze(spec);
     return Results.Ok(new ValidateRxHttpResponse(true, analysis));
+});
+
+apiV1.MapPost("/optical/decentration-glare", (DecentrationGlareHttpRequest? body) =>
+{
+    if (body is null || body.Od is null || body.Os is null)
+    {
+        return Results.Problem(
+            title: "Malformed decentration & glare payload",
+            detail: "Environment, coating, and both OD/OS prescription objects are required.",
+            statusCode: StatusCodes.Status400BadRequest);
+    }
+
+    var spec = new DecentrationGlareSpec(
+        EnvironmentId: body.EnvironmentId,
+        CoatingId: body.CoatingId,
+        AnalyzerAngleDeg: body.AnalyzerAngleDeg,
+        Od: new EyePrescription(body.Od.SphereD, body.Od.CylinderD, body.Od.AxisDeg),
+        Os: new EyePrescription(body.Os.SphereD, body.Os.CylinderD, body.Os.AxisDeg),
+        PdMm: body.PdMm,
+        FrameSku: body.FrameSku);
+
+    var outcome = DecentrationGlareCalculator.Analyze(spec);
+    if (!outcome.IsValid || outcome.Analysis is null)
+    {
+        var errorDict = outcome.Errors
+            .GroupBy(e => e.Field)
+            .ToDictionary(g => g.Key, g => g.Select(x => $"{x.Code}: {x.Message}").ToArray());
+
+        return Results.ValidationProblem(
+            errors: errorDict,
+            title: "Decentration & glare optics validation failed",
+            statusCode: StatusCodes.Status400BadRequest);
+    }
+
+    return Results.Ok(new DecentrationGlareHttpResponse(true, outcome.Analysis));
 });
 
 apiV1.MapPost("/atelier/quote", (AtelierQuoteHttpRequest? body) =>

@@ -102,7 +102,7 @@ export const HeroShowcase: React.FC = () => {
                 {copy.heroEditionLabel}
               </span>
               <span className="font-mono-tech text-[10px] tracking-[0.18em] text-[var(--ink-muted)]">
-                {heroProduct.sku} · V5.0
+                {heroProduct.sku} · V6.0
               </span>
             </div>
 

@@ -28,7 +28,7 @@ public sealed class FittingReservationTests : IClassFixture<WebApplicationFactor
 
         var json = await response.Content.ReadAsStringAsync();
         Assert.Contains("healthy", json);
-        Assert.Contains("5.0.0", json);
+        Assert.Contains("6.0.0", json);
     }
 
     [Fact]

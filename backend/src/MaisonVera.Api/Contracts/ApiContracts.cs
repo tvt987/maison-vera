@@ -36,3 +36,16 @@ public sealed record ReserveFittingHttpRequest(
     string? PreferredSku = "MV-EYE-01",
     string? Notes = null,
     string? IdempotencyKey = null);
+
+public sealed record DecentrationGlareHttpRequest(
+    string EnvironmentId,
+    string CoatingId,
+    EyePrescriptionDto Od,
+    EyePrescriptionDto Os,
+    double PdMm = 64.0,
+    double AnalyzerAngleDeg = 90.0,
+    string? FrameSku = "MV-EYE-01");
+
+public sealed record DecentrationGlareHttpResponse(
+    bool Valid,
+    DecentrationGlareAnalysis Analysis);

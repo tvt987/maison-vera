@@ -55,44 +55,50 @@ export const Navbar: React.FC = () => {
           <span>{copy.brandSub}</span>
           <span className="hidden md:inline">
             {locale === 'en'
-              ? 'PMREM 3D STUDIO · OPTICAL RX SAGITTA LAB · MILLIMETER BESPOKE · .NET 10 API'
-              : 'STUDIO 3D PMREM · PHÒNG ĐO TRÒNG RX SAGITTA · BESPOKE MILIMET · API .NET 10'}
+              ? 'PMREM 3D STUDIO · POLARIZED GLARE LAB · RX SAGITTA & DECENTRATION · .NET 10 API'
+              : 'STUDIO 3D PMREM · PHÂN CỰC CHỐNG CHÓI · RX SAGITTA & LỆCH TÂM PD · API .NET 10'}
           </span>
-          <span className="text-[var(--accent)]">AW26 · V5.0 ATELIER</span>
+          <span className="text-[var(--accent)]">AW26 · V6.0 ATELIER</span>
         </div>
       </div>
 
       {/* Main Navigation Bar */}
       <div className="mx-auto flex h-14 max-w-[1440px] items-center justify-between gap-1.5 px-3 sm:h-[72px] sm:gap-2 sm:px-8">
         {/* Left Navigation Anchors */}
-        <nav className="hidden items-center gap-5 xl:flex" aria-label="Primary">
+        <nav className="hidden items-center gap-3 xl:flex 2xl:gap-4" aria-label="Primary">
           <a
             href="#bespoke-lab"
-            className="text-xs font-medium uppercase tracking-[0.16em] text-[var(--ink-muted)] transition-colors hover:text-[var(--ink)]"
+            className="whitespace-nowrap text-[10.5px] font-medium uppercase tracking-[0.12em] text-[var(--ink-muted)] transition-colors hover:text-[var(--ink)]"
           >
             {copy.navBespokeLab}
           </a>
           <a
             href="#optical-rx-lab"
-            className="text-xs font-medium uppercase tracking-[0.16em] text-[var(--ink-muted)] transition-colors hover:text-[var(--ink)]"
+            className="whitespace-nowrap text-[10.5px] font-medium uppercase tracking-[0.12em] text-[var(--ink-muted)] transition-colors hover:text-[var(--ink)]"
           >
             {copy.navOpticalRx}
           </a>
           <a
+            href="#polarized-glare-lab"
+            className="whitespace-nowrap text-[10.5px] font-medium uppercase tracking-[0.12em] text-[var(--ink-muted)] transition-colors hover:text-[var(--ink)]"
+          >
+            {copy.navGlareLab}
+          </a>
+          <a
             href="#lookbook"
-            className="text-xs font-medium uppercase tracking-[0.16em] text-[var(--ink-muted)] transition-colors hover:text-[var(--ink)]"
+            className="whitespace-nowrap text-[10.5px] font-medium uppercase tracking-[0.12em] text-[var(--ink-muted)] transition-colors hover:text-[var(--ink)]"
           >
             {copy.navLookbook}
           </a>
           <a
             href="#collection"
-            className="text-xs font-medium uppercase tracking-[0.16em] text-[var(--ink-muted)] transition-colors hover:text-[var(--ink)]"
+            className="whitespace-nowrap text-[10.5px] font-medium uppercase tracking-[0.12em] text-[var(--ink-muted)] transition-colors hover:text-[var(--ink)]"
           >
             {copy.navCatalog}
           </a>
           <a
             href="#craft"
-            className="text-xs font-medium uppercase tracking-[0.16em] text-[var(--ink-muted)] transition-colors hover:text-[var(--ink)]"
+            className="hidden whitespace-nowrap text-[10.5px] font-medium uppercase tracking-[0.12em] text-[var(--ink-muted)] transition-colors hover:text-[var(--ink)] 2xl:inline"
           >
             {copy.navCraft}
           </a>
@@ -103,9 +109,9 @@ export const Navbar: React.FC = () => {
               atelierAudio.playDetent();
               setStylistOpen(true);
             }}
-            className="inline-flex items-center gap-1.5 border border-[var(--accent)]/60 bg-[var(--surface)] px-2.5 py-1 text-[10.5px] font-medium uppercase tracking-[0.14em] text-[var(--accent)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--accent-contrast)]"
+            className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap border border-[var(--accent)]/60 bg-[var(--surface)] px-2 py-1 text-[10px] font-medium uppercase tracking-[0.11em] text-[var(--accent)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--accent-contrast)]"
           >
-            <Sparkles size={12} strokeWidth={1.6} />
+            <Sparkles size={11} strokeWidth={1.6} />
             {copy.navStylist}
           </button>
         </nav>
@@ -125,23 +131,23 @@ export const Navbar: React.FC = () => {
           href="#top"
           className="flex shrink-0 flex-col items-center text-center leading-none"
         >
-          <span className="whitespace-nowrap font-serif-editorial text-[16px] font-medium tracking-[0.18em] text-[var(--ink)] sm:text-[26px] sm:tracking-[0.24em]">
+          <span className="whitespace-nowrap font-serif-editorial text-[16px] font-medium tracking-[0.18em] text-[var(--ink)] sm:text-[22px] sm:tracking-[0.2em] 2xl:text-[26px] 2xl:tracking-[0.24em]">
             MAISON VÉRA
           </span>
         </a>
 
         {/* Right Controls */}
-        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
           {/* CMD+K Global Search */}
           <button
             type="button"
             onClick={() => setSearchOpen(true)}
             data-testid="nav-search-btn"
-            className="hidden h-9 items-center gap-2 border border-[var(--hairline)] bg-[var(--surface)] px-2.5 text-xs text-[var(--ink)] transition-colors hover:border-[var(--hairline-strong)] sm:inline-flex sm:px-3"
+            className="hidden h-9 items-center gap-1.5 border border-[var(--hairline)] bg-[var(--surface)] px-2.5 text-xs text-[var(--ink)] transition-colors hover:border-[var(--hairline-strong)] sm:inline-flex"
             aria-label={copy.searchShortcut}
           >
             <Search size={14} strokeWidth={1.5} />
-            <span className="hidden text-[11px] uppercase tracking-[0.14em] md:inline">
+            <span className="hidden text-[11px] uppercase tracking-[0.14em] 2xl:inline">
               {copy.searchShortcut}
             </span>
             <kbd className="hidden rounded border border-[var(--hairline)] px-1.5 py-0.5 font-mono-tech text-[9px] text-[var(--ink-muted)] 2xl:inline">
@@ -283,6 +289,13 @@ export const Navbar: React.FC = () => {
               className="py-1 text-xs uppercase tracking-[0.18em] text-[var(--ink)]"
             >
               {copy.navOpticalRx}
+            </a>
+            <a
+              href="#polarized-glare-lab"
+              onClick={() => setMobileMenuOpen(false)}
+              className="py-1 text-xs uppercase tracking-[0.18em] text-[var(--ink)]"
+            >
+              {copy.navGlareLab}
             </a>
             <a
               href="#lookbook"

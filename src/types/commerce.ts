@@ -305,3 +305,26 @@ export interface OpticalRxInput {
   bridgeWidthMm?: number;
   blueLightFilterEnabled: boolean;
 }
+
+export type GlareEnvironmentId =
+  | 'mediterranean-ocean'
+  | 'rain-night-highway'
+  | 'alpine-snow';
+
+export type OpticalCoatingTierId =
+  | 'uncoated-cr39'
+  | 'hydrophobic-ar'
+  | 'polarized-blue-ar';
+
+export type SabaeFrameSkuId =
+  | 'MV-EYE-04'
+  | 'MV-EYE-03'
+  | 'MV-EYE-01'
+  | 'MV-EYE-02';
+
+export type OpticalFitVerdict =
+  | 'zero-prism-optimal'
+  | 'sabae-centration-advised'
+  | 'oversized-caution';
+
+export type PrismBaseDirection = 'none' | 'base-in' | 'base-out';

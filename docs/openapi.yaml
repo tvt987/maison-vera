@@ -1,13 +1,15 @@
 openapi: 3.1.0
 info:
-  title: Maison Véra Bespoke Optical Rx & Atelier API
-  version: 5.0.0
+  title: Maison Véra Bespoke Optical Rx, Polarized Glare & Atelier API
+  version: 6.0.0
   description: |
-    Production .NET 10 Minimal API powering Maison Véra Haute Couture Eyewear & Optical Atelier.
+    Production .NET 10 Minimal API powering Maison Véra v6.0 Haute Couture Eyewear & Optical Atelier.
     Provides clinical 0.25 D optometry prescription validation, exact optical sagitta center/edge
     thickness computation across 4 refractive indices (1.50, 1.59, 1.67, 1.74 Japanese Aspheric),
-    380nm–780nm UV400 + HEV blue-light spectral transmittance modeling, itemized bespoke commission
-    quotes (USD / VND / 30% VietQR VIP deposit), and concurrency-safe idempotent boutique fitting reservations.
+    380nm–780nm UV400 + HEV blue-light spectral transmittance modeling, Brewster's Angle & Malus's Law
+    polarized glare/AR coating simulation, Pupillary-Distance (PD) decentration & Prentice's Rule prism
+    verification across 4 Sabae titanium frames, itemized bespoke commission quotes (USD / VND / 30%
+    VietQR VIP deposit), and concurrency-safe idempotent boutique fitting reservations.
   contact:
     name: Truong Van Tinh (tvt987)
     url: https://github.com/tvt987/maison-vera
@@ -50,7 +52,7 @@ paths:
                     example: maison-vera-optical-atelier-api
                   version:
                     type: string
-                    example: 5.0.0
+                    example: 6.0.0
                   runtime:
                     type: string
                     example: 10.0.401
@@ -88,6 +90,42 @@ paths:
                 $ref: '#/components/schemas/ValidateRxResponse'
         '400':
           description: Optometry validation failed (non-0.25 D step, missing Axis when CYL != 0, or PD out of bounds)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ValidationProblemDetails'
+
+  /api/v1/optical/decentration-glare:
+    post:
+      tags: [Optical Rx]
+      summary: Compute Malus's Law glare attenuation, Brewster angle physics, PD decentration, Prentice's Rule prism & Sabae frame fit verdicts
+      operationId: analyzeDecentrationAndGlare
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DecentrationGlareRequest'
+            examples:
+              oceanPolarizedAndHighMyopia:
+                summary: Mediterranean Ocean Polarized + Blue-Light AR with Narrow PD 58mm
+                value:
+                  environmentId: mediterranean-ocean
+                  coatingId: polarized-blue-ar
+                  analyzerAngleDeg: 90.0
+                  od: { sphereD: -6.0, cylinderD: 0.0, axisDeg: 0 }
+                  os: { sphereD: -6.0, cylinderD: 0.0, axisDeg: 0 }
+                  pdMm: 58.0
+                  frameSku: MV-EYE-02
+      responses:
+        '200':
+          description: Malus's Law polarized glare telemetry plus PD decentration, Prentice prism, MBS blank diameter & ranked Sabae frame fit verdicts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DecentrationGlareResponse'
+        '400':
+          description: Invalid lighting environment, coating tier, analyzer angle, frame SKU, or optometry Rx
           content:
             application/problem+json:
               schema:
@@ -456,3 +494,106 @@ components:
               additionalProperties:
                 type: array
                 items: { type: string }
+
+    DecentrationGlareRequest:
+      type: object
+      required: [environmentId, coatingId, od, os]
+      properties:
+        environmentId:
+          type: string
+          enum: [mediterranean-ocean, rain-night-highway, alpine-snow]
+        coatingId:
+          type: string
+          enum: [uncoated-cr39, hydrophobic-ar, polarized-blue-ar]
+        analyzerAngleDeg:
+          type: number
+          minimum: 0.0
+          maximum: 90.0
+          default: 90.0
+          description: Polarizer analyzer angle theta in Malus's Law I = I0 * cos^2(theta)
+        od:
+          $ref: '#/components/schemas/EyePrescription'
+        os:
+          $ref: '#/components/schemas/EyePrescription'
+        pdMm:
+          type: number
+          minimum: 54.0
+          maximum: 74.0
+          multipleOf: 0.5
+          default: 64.0
+        frameSku:
+          type: string
+          enum: [MV-EYE-04, MV-EYE-03, MV-EYE-01, MV-EYE-02]
+          default: MV-EYE-01
+
+    GlarePhysicsAnalysis:
+      type: object
+      properties:
+        environmentId: { type: string }
+        environmentLabel: { type: string }
+        surfaceMedium: { type: string }
+        refractiveIndexN2: { type: number }
+        brewsterAngleDeg: { type: number }
+        baseGlareLuminanceCdM2: { type: integer }
+        coatingId: { type: string }
+        coatingLabel: { type: string }
+        analyzerAngleDeg: { type: number }
+        malusCosSquared: { type: number }
+        vltPercent: { type: number }
+        surfaceReflectionPercent: { type: number }
+        glareAttenuationPercent: { type: number }
+        residualGlareFraction: { type: number }
+        residualGlareLuminanceCdM2: { type: integer }
+        contrastAcuityGainDb: { type: number }
+        blueLightCutPercent: { type: number }
+        uv400BlockPercent: { type: number }
+        coatingSurchargeUsd: { type: number }
+        clinicalAdvisory: { type: string }
+
+    SabaeFrameDecentrationAnalysis:
+      type: object
+      properties:
+        sku: { type: string }
+        frameName: { type: string }
+        lensWidthMm: { type: number }
+        bridgeWidthMm: { type: number }
+        effectiveDiameterMm: { type: number }
+        framePdMm: { type: number }
+        pdMm: { type: number }
+        decentrationPerEyeMm: { type: number }
+        absDecentrationMm: { type: number }
+        decentrationDirection: { type: string, enum: [zero-centered, inward-nasal, outward-temporal] }
+        odHorizontalPowerD: { type: number }
+        osHorizontalPowerD: { type: number }
+        peakHorizontalPowerD: { type: number }
+        odPrismDiopters: { type: number }
+        osPrismDiopters: { type: number }
+        peakPrismDiopters: { type: number }
+        prismBaseDirection: { type: string, enum: [none, base-in, base-out] }
+        withinAnsiZ80Tolerance: { type: boolean }
+        minimumBlankSizeMm: { type: number }
+        recommendedStockBlankMm: { type: integer, enum: [65, 70, 75, 80] }
+        fitsStandard70mmBlank: { type: boolean }
+        opticalFitScore: { type: integer, minimum: 35, maximum: 100 }
+        verdict: { type: string, enum: [zero-prism-optimal, sabae-centration-advised, oversized-caution] }
+        verdictLabel: { type: string }
+        verdictGuidance: { type: string }
+
+    DecentrationGlareResponse:
+      type: object
+      required: [valid, analysis]
+      properties:
+        valid: { type: boolean }
+        analysis:
+          type: object
+          properties:
+            glare:
+              $ref: '#/components/schemas/GlarePhysicsAnalysis'
+            selectedFrame:
+              $ref: '#/components/schemas/SabaeFrameDecentrationAnalysis'
+            bestFrameSku: { type: string }
+            bestFrameName: { type: string }
+            allFrames:
+              type: array
+              items:
+                $ref: '#/components/schemas/SabaeFrameDecentrationAnalysis'

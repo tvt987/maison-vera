@@ -20,6 +20,7 @@ import {
 } from '../engines/cartEngine';
 import { toggleCompareList } from '../engines/compareEngine';
 import { resolveActiveMonogram } from '../engines/monogramEngine';
+import { computeGlareOpticsTelemetry } from '../engines/glareOpticsEngine';
 import { computeOpticalLensTelemetry, getOpticalLensMode } from '../engines/opticalPhysics';
 import { buildOpticalRxCartPayload } from '../engines/prescriptionOpticalEngine';
 import {
@@ -33,9 +34,11 @@ import type {
   CartTotals,
   Currency,
   FoilFinishId,
+  GlareEnvironmentId,
   HeroEyewearConfig,
   Locale,
   MonogramConfig,
+  OpticalCoatingTierId,
   OpticalRxInput,
   OrderRecord,
   ProductSize,
@@ -76,6 +79,12 @@ interface StoreContextValue {
     rxInput: OpticalRxInput,
     selectedIndexId?: RefractiveIndexId,
     productId?: string
+  ) => void;
+  activeOpticalCoating: OpticalCoatingTierId;
+  applyOpticalCoatingToActiveFrame: (
+    coatingId: OpticalCoatingTierId,
+    environmentId: GlareEnvironmentId,
+    analyzerAngleDeg?: number
   ) => void;
   vipLookbook: VipLookbookEntry[];
   vipLookbookOpen: boolean;
@@ -194,6 +203,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     cameraPreset: 'runway',
     lightingMood: 'morning',
   });
+  const [activeOpticalCoating, setActiveOpticalCoating] =
+    useState<OpticalCoatingTierId>('polarized-blue-ar');
 
   const [heroMonogram, setHeroMonogram] = useState<MonogramConfig>({
     enabled: false,
@@ -538,6 +549,31 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [addToBag, heroConfig.frameFinishId, heroMonogram]
   );
 
+  const applyOpticalCoatingToActiveFrame = useCallback(
+    (
+      coatingId: OpticalCoatingTierId,
+      environmentId: GlareEnvironmentId,
+      analyzerAngleDeg = 90
+    ) => {
+      const telemetry = computeGlareOpticsTelemetry(environmentId, coatingId, analyzerAngleDeg);
+      atelierAudio.playConfirm();
+      setActiveOpticalCoating(coatingId);
+      setHeroConfig((prev) => ({
+        ...prev,
+        lensMode: telemetry.coating.mappedHeroLensMode,
+      }));
+      pushToast({
+        title:
+          locale === 'en'
+            ? `Applied ${telemetry.coating.shortLabel.en} to VÉRA-01`
+            : `Đã áp dụng ${telemetry.coating.shortLabel.vi} cho VÉRA-01`,
+        detail: `VLT ${telemetry.vltPercent.toFixed(1)}% · Glare -${telemetry.glareAttenuationPercent.toFixed(1)}% · Refl ${telemetry.surfaceReflectionPercent.toFixed(1)}%`,
+        tone: 'olive',
+      });
+    },
+    [locale, pushToast]
+  );
+
   const saveCurrentBespokeToLookbook = useCallback(
     (options?: { productId?: string; clientLabel?: string; openDrawer?: boolean }) => {
       const productId = options?.productId ?? 'mv-eye-01';
@@ -834,6 +870,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     addHeroEditionToBag,
     addBespokeCommissionToBag,
     addOpticalRxCommissionToBag,
+    activeOpticalCoating,
+    applyOpticalCoatingToActiveFrame,
     vipLookbook,
     vipLookbookOpen,
     setVipLookbookOpen,

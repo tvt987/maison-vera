@@ -25,6 +25,7 @@ export const I18N = {
     navLookbook: 'Lookbook',
     navBespokeLab: 'Sizing Lab',
     navOpticalRx: 'Optical Rx',
+    navGlareLab: 'Glare Lab',
     navCatalog: 'Collection',
     navCraft: 'Craft',
     navAtelier: 'Atelier',
@@ -320,13 +321,14 @@ export const I18N = {
     atelierTitle: 'Built to Endure Beyond Seasonal Cycles.',
     atelierBody:
       'Every MAISON VÉRA object is fabricated in small numbered batches across specialist ateliers — Sabae for Grade-5 titanium eyewear, Biella and Paris for cantilevered tailoring, and Florence/Ubrique for saddle-stitched leather.',
-    footerRights: 'MAISON VÉRA v5.0 Full-Stack .NET 10 Haute Couture Eyewear & Optical Atelier · Crafted by Truong Van Tinh (tvt987)',
+    footerRights: 'MAISON VÉRA v6.0 Full-Stack .NET 10 Haute Couture Eyewear, Polarized Glare & Optical Decentration Atelier · Crafted by Truong Van Tinh (tvt987)',
   },
   vi: {
     brandSub: 'PARIS · SABAE · LƯU TRỮ',
     navLookbook: 'Lookbook',
     navBespokeLab: 'Đo Kính Lab',
     navOpticalRx: 'Tròng Cận Rx',
+    navGlareLab: 'Phân Cực AR',
     navCatalog: 'Bộ Sưu Tập',
     navCraft: 'Quy Trình',
     navAtelier: 'Xưởng Chế Tác',
@@ -622,7 +624,7 @@ export const I18N = {
     atelierTitle: 'Được Tạo Ra Để Bền Vững Vượt Thời Gian.',
     atelierBody:
       'Mỗi tác phẩm MAISON VÉRA được sản xuất giới hạn theo lô đánh số tại các xưởng chuyên biệt — Sabae cho kính titan cấp 5, Biella và Paris cho nghệ thuật cắt may hẫng, cùng Florence/Ubrique cho đồ da khâu yên ngựa.',
-    footerRights: 'MAISON VÉRA v5.0 Full-Stack .NET 10 Haute Couture Eyewear & Optical Atelier · Chế tác bởi Trương Văn Tình (tvt987)',
+    footerRights: 'MAISON VÉRA v6.0 Full-Stack .NET 10 Haute Couture Eyewear, Phân Cực Chống Chói & Quang Học Lệch Tâm · Chế tác bởi Trương Văn Tình (tvt987)',
   },
 } as const;
 
