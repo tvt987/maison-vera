@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import {
   Box,
   Heart,
@@ -19,9 +19,12 @@ import { formatMoney } from '../engines/currency';
 import { estimateAtelierSize } from '../engines/fitEngine';
 import { resolveActiveMonogram } from '../engines/monogramEngine';
 import type { FitPreference, MonogramConfig, ProductSize } from '../types/commerce';
-import { Eyewear3DCanvas } from './Eyewear3DCanvas';
 import { MonogramStudio } from './MonogramStudio';
 import { ProductMedia } from './ProductMedia';
+
+const Eyewear3DCanvas = lazy(() =>
+  import('./Eyewear3DCanvas').then((m) => ({ default: m.Eyewear3DCanvas }))
+);
 
 type GalleryViewId = 'primary' | 'detail' | 'lighting' | '3d';
 type DossierTabId = 'overview' | 'fit' | 'reviews' | 'boutiques';
@@ -190,12 +193,20 @@ export const ProductQuickView: React.FC = () => {
             }`}
           >
             {galleryView === '3d' ? (
-              <Eyewear3DCanvas
-                config={{ ...heroConfig, cameraPreset: 'runway' }}
-                theme={theme}
-                locale={locale}
-                resetSignal={0}
-              />
+              <Suspense
+                fallback={
+                  <div className="flex h-full w-full items-center justify-center font-mono-tech text-[10px] uppercase tracking-[0.2em] text-[var(--ink-muted)]">
+                    LOADING 3D CAD...
+                  </div>
+                }
+              >
+                <Eyewear3DCanvas
+                  config={{ ...heroConfig, cameraPreset: 'runway' }}
+                  theme={theme}
+                  locale={locale}
+                  resetSignal={0}
+                />
+              </Suspense>
             ) : (
               <ProductMedia
                 product={product}

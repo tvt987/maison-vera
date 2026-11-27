@@ -21,6 +21,7 @@ import {
 import { toggleCompareList } from '../engines/compareEngine';
 import { resolveActiveMonogram } from '../engines/monogramEngine';
 import { computeOpticalLensTelemetry, getOpticalLensMode } from '../engines/opticalPhysics';
+import { buildOpticalRxCartPayload } from '../engines/prescriptionOpticalEngine';
 import {
   createInitialVipLookbookSeed,
   createVipLookbookEntry,
@@ -35,10 +36,12 @@ import type {
   HeroEyewearConfig,
   Locale,
   MonogramConfig,
+  OpticalRxInput,
   OrderRecord,
   ProductSize,
   PromoCodeId,
   PromoEvaluationResult,
+  RefractiveIndexId,
   ThemeMode,
   VipLookbookEntry,
 } from '../types/commerce';
@@ -69,6 +72,11 @@ interface StoreContextValue {
   setBespokeSizing: React.Dispatch<React.SetStateAction<BespokeSizingInput>>;
   addHeroEditionToBag: () => void;
   addBespokeCommissionToBag: (productId?: string) => void;
+  addOpticalRxCommissionToBag: (
+    rxInput: OpticalRxInput,
+    selectedIndexId?: RefractiveIndexId,
+    productId?: string
+  ) => void;
   vipLookbook: VipLookbookEntry[];
   vipLookbookOpen: boolean;
   setVipLookbookOpen: (open: boolean) => void;
@@ -488,6 +496,48 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [addToBag, bespokeSizing, heroConfig, heroMonogram, locale]
   );
 
+  const addOpticalRxCommissionToBag = useCallback(
+    (
+      rxInput: OpticalRxInput,
+      selectedIndexId?: RefractiveIndexId,
+      productId = 'mv-eye-01'
+    ) => {
+      const prod = PRODUCT_BY_ID[productId] ?? PRODUCT_BY_ID['mv-eye-01'];
+      const finish =
+        HERO_FRAME_FINISHES.find((f) => f.id === heroConfig.frameFinishId) ??
+        HERO_FRAME_FINISHES[0];
+      const cwId =
+        prod.colorways.find((c) => c.id === finish.colorwayId)?.id ??
+        prod.colorways[0].id;
+      const activeMono = resolveActiveMonogram(heroMonogram);
+      const payload = buildOpticalRxCartPayload(rxInput, selectedIndexId, prod.id);
+
+      setBespokeSizing((prev) => ({
+        ...prev,
+        pdMm: Math.max(56, Math.min(72, Math.round(rxInput.pdMm))),
+        prescriptionTier:
+          payload.indexSpec.id === 'ultra-174'
+            ? 'progressive-174'
+            : payload.indexSpec.id === 'high-167' || payload.indexSpec.id === 'poly-159'
+            ? 'single-vision-167'
+            : 'plano',
+      }));
+
+      addToBag({
+        productId: prod.id,
+        size: 'OS',
+        colorwayId: cwId,
+        customMeta: payload.customMeta,
+        unitPriceAddonUsd:
+          payload.unitPriceAddonUsd > 0 ? payload.unitPriceAddonUsd : undefined,
+        bespokeSummary: payload.bespokeSummary,
+        monogram: activeMono,
+        openDrawer: true,
+      });
+    },
+    [addToBag, heroConfig.frameFinishId, heroMonogram]
+  );
+
   const saveCurrentBespokeToLookbook = useCallback(
     (options?: { productId?: string; clientLabel?: string; openDrawer?: boolean }) => {
       const productId = options?.productId ?? 'mv-eye-01';
@@ -783,6 +833,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setBespokeSizing,
     addHeroEditionToBag,
     addBespokeCommissionToBag,
+    addOpticalRxCommissionToBag,
     vipLookbook,
     vipLookbookOpen,
     setVipLookbookOpen,

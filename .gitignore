@@ -3,3 +3,10 @@ dist/
 *.local
 .DS_Store
 evidence/*.log
+
+# .NET build artifacts
+backend/**/bin/
+backend/**/obj/
+*.user
+.vs/
+TestResults/

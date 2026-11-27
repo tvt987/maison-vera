@@ -1,0 +1,82 @@
+name: maison-vera
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: maison-vera-web
+    ports:
+      - "8080:80"
+    depends_on:
+      api:
+        condition: service_started
+    networks:
+      - atelier-net
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: maison-vera-api
+    ports:
+      - "5080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=maison_vera;Username=vera_atelier;Password=${POSTGRES_PASSWORD:-vera_dev_secure_2026}"
+      ConnectionStrings__Redis: "redis:6379"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - atelier-net
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: maison-vera-postgres
+    environment:
+      POSTGRES_DB: maison_vera
+      POSTGRES_USER: vera_atelier
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vera_dev_secure_2026}
+    ports:
+      - "5432:5432"
+    volumes:
+      - maison_vera_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vera_atelier -d maison_vera"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - atelier-net
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: maison-vera-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - maison_vera_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - atelier-net
+    restart: unless-stopped
+
+volumes:
+  maison_vera_pgdata:
+  maison_vera_redis:
+
+networks:
+  atelier-net:
+    driver: bridge

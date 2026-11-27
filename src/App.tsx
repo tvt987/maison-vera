@@ -1,34 +1,84 @@
-import React, { useEffect, useRef } from 'react';
+import React, { lazy, Suspense, useEffect, useRef } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import Lenis from 'lenis';
 import { AtelierCurtain } from './components/AtelierCurtain';
 import { AtelierManifesto } from './components/AtelierManifesto';
-import { AtelierStylistDrawer } from './components/AtelierStylistDrawer';
-import { BagDrawer } from './components/BagDrawer';
-import { BespokeSizingLab } from './components/BespokeSizingLab';
-import { CatalogSection } from './components/CatalogSection';
-import { CheckoutModal } from './components/CheckoutModal';
-import { CommandSearchModal } from './components/CommandSearchModal';
-import { CompareDockModal } from './components/CompareDockModal';
 import { CraftsmanshipStrip } from './components/CraftsmanshipStrip';
-import { EditorialLookbook } from './components/EditorialLookbook';
 import { HeroShowcase } from './components/HeroShowcase';
-import { LookbookDrawer } from './components/LookbookDrawer';
 import { Navbar } from './components/Navbar';
 import { PrivateVaultBanner } from './components/PrivateVaultBanner';
-import { ProductQuickView } from './components/ProductQuickView';
 import { RecentlyViewedStrip } from './components/RecentlyViewedStrip';
 import { RunwayTicker } from './components/RunwayTicker';
 import { ToastStack } from './components/ToastStack';
-import { VipLookbookDrawer } from './components/VipLookbookDrawer';
-import { WishlistDrawer } from './components/WishlistDrawer';
 import { StoreProvider, useStore } from './context/StoreContext';
+
+const BespokeSizingLab = lazy(() =>
+  import('./components/BespokeSizingLab').then((m) => ({ default: m.BespokeSizingLab }))
+);
+const OpticalRxLab = lazy(() =>
+  import('./components/OpticalRxLab').then((m) => ({ default: m.OpticalRxLab }))
+);
+const EditorialLookbook = lazy(() =>
+  import('./components/EditorialLookbook').then((m) => ({ default: m.EditorialLookbook }))
+);
+const CatalogSection = lazy(() =>
+  import('./components/CatalogSection').then((m) => ({ default: m.CatalogSection }))
+);
+const CheckoutModal = lazy(() =>
+  import('./components/CheckoutModal').then((m) => ({ default: m.CheckoutModal }))
+);
+const CompareDockModal = lazy(() =>
+  import('./components/CompareDockModal').then((m) => ({ default: m.CompareDockModal }))
+);
+const VipLookbookDrawer = lazy(() =>
+  import('./components/VipLookbookDrawer').then((m) => ({ default: m.VipLookbookDrawer }))
+);
+const ProductQuickView = lazy(() =>
+  import('./components/ProductQuickView').then((m) => ({ default: m.ProductQuickView }))
+);
+const AtelierStylistDrawer = lazy(() =>
+  import('./components/AtelierStylistDrawer').then((m) => ({ default: m.AtelierStylistDrawer }))
+);
+const BagDrawer = lazy(() =>
+  import('./components/BagDrawer').then((m) => ({ default: m.BagDrawer }))
+);
+const CommandSearchModal = lazy(() =>
+  import('./components/CommandSearchModal').then((m) => ({ default: m.CommandSearchModal }))
+);
+const LookbookDrawer = lazy(() =>
+  import('./components/LookbookDrawer').then((m) => ({ default: m.LookbookDrawer }))
+);
+const WishlistDrawer = lazy(() =>
+  import('./components/WishlistDrawer').then((m) => ({ default: m.WishlistDrawer }))
+);
 
 gsap.registerPlugin(ScrollTrigger);
 
+const LabSectionFallback: React.FC<{ id: string; label: string }> = ({ id, label }) => (
+  <section
+    id={id}
+    className="border-b border-[var(--hairline)] bg-[var(--surface)] py-16 text-center"
+  >
+    <span className="font-mono-tech text-[10px] uppercase tracking-[0.22em] text-[var(--ink-muted)]">
+      {label}
+    </span>
+  </section>
+);
+
 const StorefrontShell: React.FC = () => {
-  const { hasActiveOverlay } = useStore();
+  const {
+    hasActiveOverlay,
+    stylistOpen,
+    vipLookbookOpen,
+    activeLookbookBundleId,
+    quickViewProductId,
+    searchOpen,
+    wishlistOpen,
+    bagOpen,
+    compareIds,
+    checkoutOpen,
+  } = useStore();
   const lenisRef = useRef<Lenis | null>(null);
 
   useEffect(() => {
@@ -115,25 +165,36 @@ const StorefrontShell: React.FC = () => {
       <main>
         <HeroShowcase />
         <RunwayTicker />
-        <BespokeSizingLab />
-        <EditorialLookbook />
-        <CatalogSection />
+        <Suspense fallback={<LabSectionFallback id="bespoke-lab" label="CALIBRATING SABAE MILLIMETER LAB..." />}>
+          <BespokeSizingLab />
+        </Suspense>
+        <Suspense fallback={<LabSectionFallback id="optical-rx-lab" label="LOADING OPTICAL RX SAGITTA LAB..." />}>
+          <OpticalRxLab />
+        </Suspense>
+        <Suspense fallback={<LabSectionFallback id="lookbook" label="LOADING EDITORIAL LOOKBOOK..." />}>
+          <EditorialLookbook />
+        </Suspense>
+        <Suspense fallback={<LabSectionFallback id="collection" label="LOADING ARCHIVAL COLLECTION..." />}>
+          <CatalogSection />
+        </Suspense>
         <CraftsmanshipStrip />
         <RecentlyViewedStrip />
         <PrivateVaultBanner />
       </main>
       <AtelierManifesto />
 
-      {/* Production Overlays, Concierge Drawers & Comparison Matrix */}
-      <AtelierStylistDrawer />
-      <VipLookbookDrawer />
-      <LookbookDrawer />
-      <ProductQuickView />
-      <CommandSearchModal />
-      <WishlistDrawer />
-      <BagDrawer />
-      <CompareDockModal />
-      <CheckoutModal />
+      {/* On-Demand Code-Split Overlays, Concierge Drawers & Comparison Matrix */}
+      <Suspense fallback={null}>
+        {stylistOpen && <AtelierStylistDrawer />}
+        {vipLookbookOpen && <VipLookbookDrawer />}
+        {activeLookbookBundleId && <LookbookDrawer />}
+        {quickViewProductId && <ProductQuickView />}
+        {searchOpen && <CommandSearchModal />}
+        {wishlistOpen && <WishlistDrawer />}
+        {bagOpen && <BagDrawer />}
+        {compareIds.length > 0 && <CompareDockModal />}
+        {checkoutOpen && <CheckoutModal />}
+      </Suspense>
       <ToastStack />
     </div>
   );

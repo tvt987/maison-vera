@@ -55,10 +55,10 @@ export const Navbar: React.FC = () => {
           <span>{copy.brandSub}</span>
           <span className="hidden md:inline">
             {locale === 'en'
-              ? 'PMREM 3D STUDIO · MILLIMETER BESPOKE LAB · MBBANK VIETQR · AI STYLIST -12%'
-              : 'STUDIO 3D PMREM · ĐO KÍNH MILIMET BESPOKE · MBBANK VIETQR · STYLIST AI -12%'}
+              ? 'PMREM 3D STUDIO · OPTICAL RX SAGITTA LAB · MILLIMETER BESPOKE · .NET 10 API'
+              : 'STUDIO 3D PMREM · PHÒNG ĐO TRÒNG RX SAGITTA · BESPOKE MILIMET · API .NET 10'}
           </span>
-          <span className="text-[var(--accent)]">AW26 · V4.0 VIP PRO</span>
+          <span className="text-[var(--accent)]">AW26 · V5.0 ATELIER</span>
         </div>
       </div>
 
@@ -71,6 +71,12 @@ export const Navbar: React.FC = () => {
             className="text-xs font-medium uppercase tracking-[0.16em] text-[var(--ink-muted)] transition-colors hover:text-[var(--ink)]"
           >
             {copy.navBespokeLab}
+          </a>
+          <a
+            href="#optical-rx-lab"
+            className="text-xs font-medium uppercase tracking-[0.16em] text-[var(--ink-muted)] transition-colors hover:text-[var(--ink)]"
+          >
+            {copy.navOpticalRx}
           </a>
           <a
             href="#lookbook"
@@ -270,6 +276,13 @@ export const Navbar: React.FC = () => {
               className="py-1 text-xs uppercase tracking-[0.18em] text-[var(--ink)]"
             >
               {copy.navBespokeLab}
+            </a>
+            <a
+              href="#optical-rx-lab"
+              onClick={() => setMobileMenuOpen(false)}
+              className="py-1 text-xs uppercase tracking-[0.18em] text-[var(--ink)]"
+            >
+              {copy.navOpticalRx}
             </a>
             <a
               href="#lookbook"

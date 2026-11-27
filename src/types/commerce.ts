@@ -286,3 +286,22 @@ export type StylistPalette =
   | 'terracotta-warmth';
 
 export type StylistBudgetTier = 'essential' | 'signature' | 'collector';
+
+export type RefractiveIndexId = 'cr39-150' | 'poly-159' | 'high-167' | 'ultra-174';
+
+export type SpectralFilterProfileId = 'uv400-ar' | 'uv400-blue-cut' | 'solar-polarized';
+
+export interface EyePrescriptionInput {
+  sphereD: number;
+  cylinderD: number;
+  axisDeg: number | null;
+}
+
+export interface OpticalRxInput {
+  od: EyePrescriptionInput;
+  os: EyePrescriptionInput;
+  pdMm: number;
+  lensDiameterMm: number;
+  bridgeWidthMm?: number;
+  blueLightFilterEnabled: boolean;
+}

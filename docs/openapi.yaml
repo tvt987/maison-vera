@@ -1,0 +1,458 @@
+openapi: 3.1.0
+info:
+  title: Maison Véra Bespoke Optical Rx & Atelier API
+  version: 5.0.0
+  description: |
+    Production .NET 10 Minimal API powering Maison Véra Haute Couture Eyewear & Optical Atelier.
+    Provides clinical 0.25 D optometry prescription validation, exact optical sagitta center/edge
+    thickness computation across 4 refractive indices (1.50, 1.59, 1.67, 1.74 Japanese Aspheric),
+    380nm–780nm UV400 + HEV blue-light spectral transmittance modeling, itemized bespoke commission
+    quotes (USD / VND / 30% VietQR VIP deposit), and concurrency-safe idempotent boutique fitting reservations.
+  contact:
+    name: Truong Van Tinh (tvt987)
+    url: https://github.com/tvt987/maison-vera
+servers:
+  - url: http://localhost:5080
+    description: Local .NET 10 Kestrel API
+  - url: http://localhost:8080
+    description: Docker Compose Nginx Reverse Proxy
+
+tags:
+  - name: System
+    description: Runtime health and telemetry probes
+  - name: Optical Rx
+    description: Optometry validation, sagitta edge thickness physics, and 380nm–780nm spectral modeling
+  - name: Atelier Quote
+    description: Itemized bespoke eyewear commissions, temple engraving, and VND / VietQR deposit pricing
+  - name: Private Fittings
+    description: Idempotent, double-booking-safe private optical salon appointments
+
+paths:
+  /health:
+    get:
+      tags: [System]
+      summary: Service health probe
+      operationId: getHealth
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, service, version, runtime, timestampUtc]
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+                  service:
+                    type: string
+                    example: maison-vera-optical-atelier-api
+                  version:
+                    type: string
+                    example: 5.0.0
+                  runtime:
+                    type: string
+                    example: 10.0.401
+                  timestampUtc:
+                    type: string
+                    format: date-time
+
+  /api/v1/optical/validate-rx:
+    post:
+      tags: [Optical Rx]
+      summary: Validate OD/OS optometry Rx and compute sagitta thickness across 4 refractive indices
+      operationId: validateOpticalRx
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidateRxRequest'
+            examples:
+              highMyopia600:
+                summary: High Myopia (-6.00 D) recommending Ultra-Thin 1.74
+                value:
+                  od: { sphereD: -6.0, cylinderD: -0.75, axisDeg: 175 }
+                  os: { sphereD: -5.75, cylinderD: -0.5, axisDeg: 5 }
+                  pdMm: 63.0
+                  lensDiameterMm: 51.0
+                  bridgeWidthMm: 20.0
+                  blueLightFilterEnabled: true
+      responses:
+        '200':
+          description: Validated Rx with sagitta center/edge thickness comparison across 1.50, 1.59, 1.67, and 1.74
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidateRxResponse'
+        '400':
+          description: Optometry validation failed (non-0.25 D step, missing Axis when CYL != 0, or PD out of bounds)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ValidationProblemDetails'
+
+  /api/v1/atelier/quote:
+    post:
+      tags: [Atelier Quote]
+      summary: Compute itemized bespoke commission quote with USD, VND, and 30% VIP VietQR deposit
+      operationId: calculateAtelierQuote
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AtelierQuoteRequest'
+      responses:
+        '200':
+          description: Itemized bespoke commission quote
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AtelierQuoteBreakdown'
+        '400':
+          description: Invalid SKU, coating, engraving tier, quantity, or embedded Rx
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ValidationProblemDetails'
+
+  /api/v1/fittings/reserve:
+    post:
+      tags: [Private Fittings]
+      summary: Reserve a 45-minute private boutique optical fitting (idempotent & double-booking safe)
+      operationId: reserveBoutiqueFitting
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          description: Unique client-generated idempotency key (>= 6 chars). May also be passed in body.
+          schema:
+            type: string
+            minLength: 6
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReserveFittingRequest'
+      responses:
+        '201':
+          description: Private boutique fitting slot reserved
+          headers:
+            X-Idempotency-Replayed:
+              description: Always "false" on initial creation
+              schema:
+                type: string
+                enum: ['false']
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FittingReservation'
+        '200':
+          description: Idempotent replay of an already created reservation with identical Idempotency-Key & payload
+          headers:
+            X-Idempotency-Replayed:
+              description: Always "true" on replay
+              schema:
+                type: string
+                enum: ['true']
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FittingReservation'
+        '400':
+          description: Invalid boutique, off-half-hour slot boundary, missing email, or short Idempotency-Key
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Slot already reserved by another client OR Idempotency-Key reused with mismatched payload
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/v1/fittings/{reservationId}:
+    get:
+      tags: [Private Fittings]
+      summary: Fetch an existing private boutique fitting reservation by reference ID
+      operationId: getFittingReservation
+      parameters:
+        - name: reservationId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: MVF-9A41C2B0
+      responses:
+        '200':
+          description: Reservation found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FittingReservation'
+        '404':
+          description: Reservation not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/v1/fittings/boutiques/{boutiqueId}:
+    get:
+      tags: [Private Fittings]
+      summary: List reserved private fitting slots for a given Maison Véra boutique
+      operationId: getBoutiqueReservedSlots
+      parameters:
+        - name: boutiqueId
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [paris-marais, tokyo-aoyama, saigon-dongkhoi, sabae-atelier]
+      responses:
+        '200':
+          description: Boutique metadata and ordered reserved slots
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  boutique:
+                    type: object
+                  reservedSlots:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FittingReservation'
+        '404':
+          description: Boutique not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+components:
+  schemas:
+    EyePrescription:
+      type: object
+      required: [sphereD, cylinderD]
+      properties:
+        sphereD:
+          type: number
+          minimum: -10.0
+          maximum: 6.0
+          multipleOf: 0.25
+          description: Sphere power in 0.25 D optometry steps
+        cylinderD:
+          type: number
+          minimum: -4.0
+          maximum: 0.0
+          multipleOf: 0.25
+          description: Minus-cylinder astigmatic power in 0.25 D steps
+        axisDeg:
+          type: [integer, 'null']
+          minimum: 0
+          maximum: 180
+          description: Required integer 1–180 whenever cylinderD != 0
+
+    ValidateRxRequest:
+      type: object
+      required: [od, os, pdMm]
+      properties:
+        od:
+          $ref: '#/components/schemas/EyePrescription'
+        os:
+          $ref: '#/components/schemas/EyePrescription'
+        pdMm:
+          type: number
+          minimum: 54.0
+          maximum: 74.0
+          multipleOf: 0.5
+        lensDiameterMm:
+          type: number
+          minimum: 44.0
+          maximum: 62.0
+          default: 51.0
+        bridgeWidthMm:
+          type: number
+          default: 20.0
+        blueLightFilterEnabled:
+          type: boolean
+          default: true
+
+    EyeThicknessMetrics:
+      type: object
+      properties:
+        dominantPowerD: { type: number }
+        sphericalEquivalentD: { type: number }
+        sagittaMm: { type: number }
+        centerThicknessMm: { type: number }
+        edgeThicknessMm: { type: number }
+        maxThicknessMm: { type: number }
+        weightGrams: { type: number }
+
+    IndexComparisonMetrics:
+      type: object
+      properties:
+        indexId: { type: string, enum: [cr39-150, poly-159, high-167, ultra-174] }
+        indexCode: { type: string, enum: ['1.50', '1.59', '1.67', '1.74'] }
+        displayName: { type: string }
+        refractiveIndex: { type: number }
+        abbeValue: { type: integer }
+        surchargeUsd: { type: number }
+        od: { $ref: '#/components/schemas/EyeThicknessMetrics' }
+        os: { $ref: '#/components/schemas/EyeThicknessMetrics' }
+        peakCenterThicknessMm: { type: number }
+        peakEdgeThicknessMm: { type: number }
+        peakThicknessMm: { type: number }
+        edgeReductionPercentVs150: { type: number }
+        maxThicknessReductionPercentVs150: { type: number }
+        pairWeightGrams: { type: number }
+        fits4mmTitaniumRim: { type: boolean }
+        isRecommended: { type: boolean }
+
+    SpectralPoint:
+      type: object
+      properties:
+        wavelengthNm: { type: integer, minimum: 380, maximum: 780 }
+        baselineArTransmittancePct: { type: number }
+        activeTransmittancePct: { type: number }
+
+    SpectralProfileSummary:
+      type: object
+      properties:
+        profile: { type: string, enum: [uv400-ar, uv400-blue-cut] }
+        uv400BlockPercent: { type: number }
+        hevBlueFilterPercent: { type: number }
+        visibleAvgTransmittancePercent: { type: number }
+        samples:
+          type: array
+          items:
+            $ref: '#/components/schemas/SpectralPoint'
+
+    ValidateRxResponse:
+      type: object
+      required: [valid, analysis]
+      properties:
+        valid: { type: boolean }
+        analysis:
+          type: object
+          properties:
+            effectiveSemiDiameterMm: { type: number }
+            decentrationPerEyeMm: { type: number }
+            strongestMeridianAbsD: { type: number }
+            recommendedIndexId: { type: string }
+            recommendedIndexCode: { type: string }
+            recommendedIndexLabel: { type: string }
+            recommendedUpgradeUsd: { type: number }
+            comparisons:
+              type: array
+              items:
+                $ref: '#/components/schemas/IndexComparisonMetrics'
+            spectral:
+              $ref: '#/components/schemas/SpectralProfileSummary'
+
+    AtelierQuoteRequest:
+      type: object
+      required: [sku]
+      properties:
+        sku: { type: string, example: MV-EYE-01 }
+        opticalCoatingId:
+          type: string
+          enum: [clear-ar, blue-light-studio, polarized-amber, midnight-gradient, photochromic-uv]
+          default: clear-ar
+        refractiveIndexId:
+          type: [string, 'null']
+          description: Optional override ('1.50', '1.59', '1.67', '1.74'). Auto-selected from prescription if omitted.
+        engravingTierId:
+          type: string
+          enum: [none, micro-laser, gold-18k-inlay]
+          default: none
+        engravingText:
+          type: [string, 'null']
+          maxLength: 24
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 1
+        prescription:
+          oneOf:
+            - $ref: '#/components/schemas/ValidateRxRequest'
+            - type: 'null'
+
+    AtelierQuoteBreakdown:
+      type: object
+      properties:
+        quoteId: { type: string }
+        sku: { type: string }
+        frameName: { type: string }
+        quantity: { type: integer }
+        opticalCoatingId: { type: string }
+        opticalCoatingLabel: { type: string }
+        refractiveIndexId: { type: string }
+        refractiveIndexCode: { type: string }
+        engravingTierId: { type: string }
+        sanitizedEngravingText: { type: string }
+        baseFrameUsd: { type: number }
+        opticalCoatingUsd: { type: number }
+        refractiveIndexUsd: { type: number }
+        engravingUsd: { type: number }
+        unitTotalUsd: { type: number }
+        grandTotalUsd: { type: number }
+        grandTotalVnd: { type: number }
+        vipDeposit30PercentVnd: { type: number }
+
+    ReserveFittingRequest:
+      type: object
+      required: [boutiqueId, slotStartUtc, clientName, clientEmail]
+      properties:
+        boutiqueId:
+          type: string
+          enum: [paris-marais, tokyo-aoyama, saigon-dongkhoi, sabae-atelier]
+        slotStartUtc:
+          type: string
+          format: date-time
+          description: Must align to :00 or :30 UTC minute boundaries
+        clientName: { type: string, minLength: 2 }
+        clientEmail: { type: string, format: email }
+        preferredSku: { type: string, default: MV-EYE-01 }
+        notes: { type: [string, 'null'] }
+        idempotencyKey: { type: [string, 'null'] }
+
+    FittingReservation:
+      type: object
+      properties:
+        reservationId: { type: string, example: MVF-8E21AB44 }
+        boutiqueId: { type: string }
+        boutiqueName: { type: string }
+        slotStartUtc: { type: string, format: date-time }
+        slotEndUtc: { type: string, format: date-time }
+        clientName: { type: string }
+        clientEmail: { type: string }
+        preferredSku: { type: string }
+        notes: { type: [string, 'null'] }
+        idempotencyKey: { type: string }
+        createdAtUtc: { type: string, format: date-time }
+
+    ProblemDetails:
+      type: object
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+
+    ValidationProblemDetails:
+      allOf:
+        - $ref: '#/components/schemas/ProblemDetails'
+        - type: object
+          properties:
+            errors:
+              type: object
+              additionalProperties:
+                type: array
+                items: { type: string }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { lazy, Suspense, useState } from 'react';
 import {
   ArrowDownRight,
   BookmarkPlus,
@@ -27,8 +27,11 @@ import {
   OPTICAL_LENS_MODES,
 } from '../engines/opticalPhysics';
 import type { EyewearCameraPreset, StudioLightingMood } from '../types/commerce';
-import { Eyewear3DCanvas } from './Eyewear3DCanvas';
 import { MonogramStudio } from './MonogramStudio';
+
+const Eyewear3DCanvas = lazy(() =>
+  import('./Eyewear3DCanvas').then((m) => ({ default: m.Eyewear3DCanvas }))
+);
 
 export const HeroShowcase: React.FC = () => {
   const {
@@ -99,7 +102,7 @@ export const HeroShowcase: React.FC = () => {
                 {copy.heroEditionLabel}
               </span>
               <span className="font-mono-tech text-[10px] tracking-[0.18em] text-[var(--ink-muted)]">
-                {heroProduct.sku} · V4.0
+                {heroProduct.sku} · V5.0
               </span>
             </div>
 
@@ -517,13 +520,21 @@ export const HeroShowcase: React.FC = () => {
               }`}
             >
               {stageMode === '3d' && (
-                <Eyewear3DCanvas
-                  config={heroConfig}
-                  theme={theme}
-                  locale={locale}
-                  resetSignal={resetSignal}
-                  paused={hasActiveOverlay}
-                />
+                <Suspense
+                  fallback={
+                    <div className="flex h-full w-full items-center justify-center font-mono-tech text-[10px] uppercase tracking-[0.22em] text-[var(--ink-muted)]">
+                      INITIALIZING PMREM 3D STUDIO...
+                    </div>
+                  }
+                >
+                  <Eyewear3DCanvas
+                    config={heroConfig}
+                    theme={theme}
+                    locale={locale}
+                    resetSignal={resetSignal}
+                    paused={hasActiveOverlay}
+                  />
+                </Suspense>
               )}
             </div>
           </div>
