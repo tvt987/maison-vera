@@ -19,7 +19,8 @@ export type DeliveryFormValues = z.infer<typeof deliveryFormSchema>;
 
 export const paymentFormSchema = z
   .object({
-    method: z.enum(['card', 'apple-pay', 'b2b-invoice']),
+    method: z.enum(['vietqr-mbbank', 'card', 'apple-pay', 'b2b-invoice']),
+    vietQrMode: z.enum(['full', 'deposit-30']).optional(),
     cardNumber: z.string().optional(),
     cardHolder: z.string().optional(),
     cardExpiry: z.string().optional(),

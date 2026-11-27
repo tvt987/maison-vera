@@ -6,8 +6,9 @@ export function getMediaUrl(fileName: string): string {
   const base =
     typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL
       ? import.meta.env.BASE_URL
-      : '/';
-  return `${base}media/${fileName}`;
+      : './';
+  const normalizedBase = base.endsWith('/') ? base : `${base}/`;
+  return `${normalizedBase}media/${fileName}`;
 }
 
 export const HERO_FRAME_FINISHES = [
@@ -22,10 +23,10 @@ export const HERO_FRAME_FINISHES = [
   },
   {
     id: 'warm-gold' as const,
-    label: { en: 'Warm Gold', vi: 'Vàng Champagne' },
-    metalHex: '#D1AE6F',
-    metalness: 0.96,
-    roughness: 0.22,
+    label: { en: '18K Warm Gold', vi: 'Vàng 18K Champagne' },
+    metalHex: '#D8B46C',
+    metalness: 0.98,
+    roughness: 0.18,
     colorwayId: 'eye01-gold',
     photoFilter: 'sepia(0.18) saturate(1.16) brightness(1.02)',
   },

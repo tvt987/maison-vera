@@ -2,9 +2,11 @@ import React, { useEffect, useState } from 'react';
 import {
   Building2,
   Check,
+  Copy,
   CreditCard,
   PackageCheck,
   Printer,
+  QrCode,
   ShieldCheck,
   Smartphone,
   Sparkles,
@@ -21,7 +23,17 @@ import {
 } from '../engines/checkoutSchema';
 import { formatMoney } from '../engines/currency';
 import { formatMonogramLine } from '../engines/monogramEngine';
-import type { OrderRecord, PaymentMethod } from '../types/commerce';
+import {
+  buildMbBankVietQrUrl,
+  computeVietQrAmountVnd,
+  formatVndPlain,
+  MBBANK_VIETQR_CONFIG,
+} from '../engines/vietQr';
+import type {
+  OrderRecord,
+  PaymentMethod,
+  VietQrSettlementMode,
+} from '../types/commerce';
 
 /**
  * Deterministic SVG Barcode + QR Matrix Seal derived from Order ID
@@ -119,7 +131,9 @@ export const CheckoutModal: React.FC = () => {
   });
   const [deliveryErrors, setDeliveryErrors] = useState<Record<string, string>>({});
 
-  const [payMethod, setPayMethod] = useState<PaymentMethod>('card');
+  const [payMethod, setPayMethod] = useState<PaymentMethod>('vietqr-mbbank');
+  const [vietQrMode, setVietQrMode] = useState<VietQrSettlementMode>('deposit-30');
+  const [copiedField, setCopiedField] = useState<'account' | 'memo' | null>(null);
   const [cardNumber, setCardNumber] = useState('4532 8910 4421 9084');
   const [cardHolder, setCardHolder] = useState('TRUONG VAN TINH');
   const [cardExpiry, setCardExpiry] = useState('11/29');
@@ -194,10 +208,30 @@ export const CheckoutModal: React.FC = () => {
     setStep(2);
   };
 
+  const previewOrderSeed = `${delivery.email || 'vip@maison-vera.paris'}|${cartTotals.grandTotalUsd}|${activePromoCode ?? 'NONE'}|${cart
+    .map((i) => `${i.productId}:${i.quantity}`)
+    .join(',')}`;
+  const previewOrderRef = generateDeterministicOrderId(previewOrderSeed);
+  const vietQrAmountVnd = computeVietQrAmountVnd(cartTotals.grandTotalUsd, vietQrMode);
+  const vietQrMemo = `${previewOrderRef} ${vietQrMode === 'deposit-30' ? 'VIP30' : 'FULL'}`;
+  const vietQrUrl = buildMbBankVietQrUrl({
+    amountVnd: vietQrAmountVnd,
+    transferRef: vietQrMemo,
+  });
+
+  const handleCopyText = (field: 'account' | 'memo', text: string) => {
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).catch(() => {});
+    }
+    setCopiedField(field);
+    window.setTimeout(() => setCopiedField(null), 1800);
+  };
+
   const handleAuthorizeOrder = (e: React.FormEvent) => {
     e.preventDefault();
     const parsed = paymentFormSchema.safeParse({
       method: payMethod,
+      vietQrMode,
       cardNumber,
       cardHolder,
       cardExpiry,
@@ -215,16 +249,15 @@ export const CheckoutModal: React.FC = () => {
     }
 
     setPaymentErrors({});
-    const seed = `${delivery.email}|${cartTotals.grandTotalUsd}|${activePromoCode ?? 'NONE'}|${cart
-      .map((i) => `${i.productId}:${i.quantity}`)
-      .join(',')}`;
-    const orderId = generateDeterministicOrderId(seed);
+    const orderId = previewOrderRef;
 
     const record: OrderRecord = {
       orderId,
       createdAtIso: new Date().toISOString(),
       currency,
       paymentMethod: payMethod,
+      vietQrMode: payMethod === 'vietqr-mbbank' ? vietQrMode : undefined,
+      vietQrAmountVnd: payMethod === 'vietqr-mbbank' ? vietQrAmountVnd : undefined,
       customer: { ...delivery },
       items: cart
         .map((item) => {
@@ -240,7 +273,9 @@ export const CheckoutModal: React.FC = () => {
             colorwayName: cw.name,
             quantity: item.quantity,
             unitPriceUsd: prod.priceUsd,
+            unitPriceAddonUsd: item.unitPriceAddonUsd,
             customMeta: item.customMeta,
+            bespokeSummary: item.bespokeSummary,
             monogram: item.monogram,
           };
         })
@@ -514,12 +549,13 @@ export const CheckoutModal: React.FC = () => {
             </form>
           )}
 
-          {/* STEP 2: Payment & Live Metallic Card Visual */}
+          {/* STEP 2: Payment — Live MBBank VietQR + Metallic Card + Apple Pay + B2B */}
           {step === 2 && (
             <form onSubmit={handleAuthorizeOrder} className="space-y-5">
-              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {(
                   [
+                    ['vietqr-mbbank', copy.checkoutPayMethodVietQr, QrCode],
                     ['card', copy.checkoutPayMethodCard, CreditCard],
                     ['apple-pay', copy.checkoutPayMethodApple, Smartphone],
                     ['b2b-invoice', copy.checkoutPayMethodB2b, Building2],
@@ -528,21 +564,152 @@ export const CheckoutModal: React.FC = () => {
                   <button
                     key={id}
                     type="button"
+                    data-testid={`pay-method-${id}`}
                     onClick={() => {
                       setPayMethod(id);
                       setPaymentErrors({});
                     }}
-                    className={`flex items-center gap-2.5 border px-4 py-3 text-left text-xs transition-colors ${
+                    className={`flex items-center gap-2 border px-3 py-2.5 text-left text-[11px] transition-colors ${
                       payMethod === id
                         ? 'border-[var(--ink)] bg-[var(--ink)] text-[var(--surface)]'
-                        : 'border-[var(--hairline-strong)] bg-[var(--bg)] text-[var(--ink)]'
+                        : 'border-[var(--hairline-strong)] bg-[var(--bg)] text-[var(--ink)] hover:border-[var(--ink)]'
                     }`}
                   >
-                    <Icon size={15} strokeWidth={1.5} />
-                    <span>{label}</span>
+                    <Icon size={14} strokeWidth={1.5} className="shrink-0" />
+                    <span className="truncate">{label}</span>
                   </button>
                 ))}
               </div>
+
+              {payMethod === 'vietqr-mbbank' && (
+                <div
+                  data-testid="vietqr-mbbank-panel"
+                  className="grid grid-cols-1 gap-5 border border-[var(--hairline-strong)] bg-[var(--bg)] p-5 md:grid-cols-12"
+                >
+                  {/* Live Scannable MBBank VietQR Image */}
+                  <div className="flex flex-col items-center justify-center border border-[var(--hairline)] bg-white p-3 md:col-span-5">
+                    <img
+                      src={vietQrUrl}
+                      alt={`MBBank VietQR ${MBBANK_VIETQR_CONFIG.accountNo} — ${MBBANK_VIETQR_CONFIG.accountName}`}
+                      data-testid="mbbank-vietqr-img"
+                      className="h-auto w-full max-w-[230px] object-contain"
+                    />
+                    <span className="mt-2 font-mono-tech text-[9.5px] uppercase tracking-[0.16em] text-[#111111]/70">
+                      NAPAS 24/7 · MBBANK {MBBANK_VIETQR_CONFIG.bankBin}
+                    </span>
+                  </div>
+
+                  {/* Settlement Toggle + Structured Bank Transfer Dossier */}
+                  <div className="flex flex-col justify-between space-y-3.5 md:col-span-7">
+                    <div>
+                      <p className="font-mono-tech text-[10px] uppercase tracking-[0.2em] text-[var(--accent)]">
+                        VIP PRIVATE CLIENT TRANSFER · VIETQR LIVE
+                      </p>
+                      <p className="mt-1 text-xs leading-relaxed text-[var(--ink-muted)]">
+                        {copy.checkoutVietQrNote}
+                      </p>
+
+                      {/* 30% Deposit vs 100% Full Settlement */}
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          data-testid="vietqr-mode-deposit"
+                          onClick={() => setVietQrMode('deposit-30')}
+                          className={`border px-3 py-2 text-left transition-colors ${
+                            vietQrMode === 'deposit-30'
+                              ? 'border-[var(--accent)] bg-[var(--surface)] text-[var(--ink)] ring-1 ring-[var(--accent)]'
+                              : 'border-[var(--hairline)] bg-[var(--surface)] text-[var(--ink-muted)]'
+                          }`}
+                        >
+                          <span className="block font-mono-tech text-[9.5px] uppercase">
+                            {copy.checkoutVietQrDeposit}
+                          </span>
+                          <span className="mt-0.5 block font-mono-tech text-xs font-medium text-[var(--accent)]">
+                            {formatVndPlain(
+                              computeVietQrAmountVnd(cartTotals.grandTotalUsd, 'deposit-30')
+                            )}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          data-testid="vietqr-mode-full"
+                          onClick={() => setVietQrMode('full')}
+                          className={`border px-3 py-2 text-left transition-colors ${
+                            vietQrMode === 'full'
+                              ? 'border-[var(--accent)] bg-[var(--surface)] text-[var(--ink)] ring-1 ring-[var(--accent)]'
+                              : 'border-[var(--hairline)] bg-[var(--surface)] text-[var(--ink-muted)]'
+                          }`}
+                        >
+                          <span className="block font-mono-tech text-[9.5px] uppercase">
+                            {copy.checkoutVietQrFull}
+                          </span>
+                          <span className="mt-0.5 block font-mono-tech text-xs font-medium text-[var(--ink)]">
+                            {formatVndPlain(
+                              computeVietQrAmountVnd(cartTotals.grandTotalUsd, 'full')
+                            )}
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Bank Details Table */}
+                    <div className="space-y-2 border border-[var(--hairline)] bg-[var(--surface)] p-3.5 font-mono-tech text-[11px]">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[var(--ink-muted)]">BANK</span>
+                        <span className="text-[var(--ink)]">
+                          {MBBANK_VIETQR_CONFIG.bankShortName} ({MBBANK_VIETQR_CONFIG.bankBin})
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[var(--ink-muted)]">ACCOUNT</span>
+                        <span className="inline-flex items-center gap-2 font-medium text-[var(--ink)]">
+                          {MBBANK_VIETQR_CONFIG.accountNo}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleCopyText('account', MBBANK_VIETQR_CONFIG.accountNo)
+                            }
+                            className="inline-flex items-center gap-1 border border-[var(--hairline-strong)] px-1.5 py-0.5 text-[9px] uppercase hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                          >
+                            <Copy size={10} />
+                            {copiedField === 'account'
+                              ? copy.checkoutCopied
+                              : copy.checkoutCopyAccount}
+                          </button>
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[var(--ink-muted)]">HOLDER</span>
+                        <span className="font-medium text-[var(--ink)]">
+                          {MBBANK_VIETQR_CONFIG.accountName}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[var(--ink-muted)]">MEMO</span>
+                        <span className="inline-flex items-center gap-2 text-[var(--accent)]">
+                          {vietQrMemo}
+                          <button
+                            type="button"
+                            onClick={() => handleCopyText('memo', vietQrMemo)}
+                            className="inline-flex items-center gap-1 border border-[var(--hairline-strong)] px-1.5 py-0.5 text-[9px] uppercase text-[var(--ink)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                          >
+                            <Copy size={10} />
+                            {copiedField === 'memo'
+                              ? copy.checkoutCopied
+                              : copy.checkoutCopyMemo}
+                          </button>
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between border-t border-[var(--hairline)] pt-2">
+                        <span className="text-[var(--ink-muted)]">DUE NOW</span>
+                        <span className="text-sm font-medium text-[var(--ink)]">
+                          {formatVndPlain(vietQrAmountVnd)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {payMethod === 'card' && (
                 <div className="grid grid-cols-1 gap-5 md:grid-cols-12">
@@ -785,6 +952,11 @@ export const CheckoutModal: React.FC = () => {
                         <p className="font-mono-tech text-[10px] text-[var(--ink-muted)]">
                           {item.sku} · {item.size} · {item.customMeta ?? item.colorwayName[locale]}
                         </p>
+                        {item.bespokeSummary && (
+                          <p className="mt-0.5 font-mono-tech text-[9.5px] text-[var(--olive)]">
+                            {item.bespokeSummary}
+                          </p>
+                        )}
                         {item.monogram && (
                           <p
                             data-testid="receipt-item-monogram"
@@ -795,7 +967,11 @@ export const CheckoutModal: React.FC = () => {
                         )}
                       </div>
                       <span className="font-mono-tech text-[var(--ink)]">
-                        {formatMoney(item.unitPriceUsd * item.quantity, currency)}
+                        {formatMoney(
+                          (item.unitPriceUsd + (item.unitPriceAddonUsd ?? 0)) *
+                            item.quantity,
+                          currency
+                        )}
                       </span>
                     </div>
                   ))}
@@ -863,6 +1039,16 @@ export const CheckoutModal: React.FC = () => {
                         {formatMoney(confirmedOrder.totals.grandTotalUsd, currency)}
                       </span>
                     </div>
+                    {confirmedOrder.paymentMethod === 'vietqr-mbbank' &&
+                      confirmedOrder.vietQrAmountVnd && (
+                        <div className="mt-2 border-t border-[var(--hairline)] pt-2 font-mono-tech text-[10px] text-[var(--accent)]">
+                          MBBank {MBBANK_VIETQR_CONFIG.accountNo} ·{' '}
+                          {confirmedOrder.vietQrMode === 'deposit-30'
+                            ? '30% VIP DEPOSIT'
+                            : '100% VIETQR'}{' '}
+                          ({formatVndPlain(confirmedOrder.vietQrAmountVnd)})
+                        </div>
+                      )}
                   </div>
 
                   <ArchivalBarcodeSeal orderId={confirmedOrder.orderId} />

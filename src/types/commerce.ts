@@ -109,6 +109,8 @@ export interface CartItem {
   colorwayId: string;
   quantity: number;
   customMeta?: string;
+  unitPriceAddonUsd?: number;
+  bespokeSummary?: string;
   monogram?: {
     text: string;
     foil: FoilFinishId;
@@ -175,13 +177,16 @@ export interface FitRecommendation {
   confidenceNote: LocalizedText;
 }
 
-export type PaymentMethod = 'card' | 'apple-pay' | 'b2b-invoice';
+export type PaymentMethod = 'vietqr-mbbank' | 'card' | 'apple-pay' | 'b2b-invoice';
+export type VietQrSettlementMode = 'full' | 'deposit-30';
 
 export interface OrderRecord {
   orderId: string;
   createdAtIso: string;
   currency: Currency;
   paymentMethod: PaymentMethod;
+  vietQrMode?: VietQrSettlementMode;
+  vietQrAmountVnd?: number;
   customer: {
     fullName: string;
     email: string;
@@ -199,7 +204,9 @@ export interface OrderRecord {
     colorwayName: LocalizedText;
     quantity: number;
     unitPriceUsd: number;
+    unitPriceAddonUsd?: number;
     customMeta?: string;
+    bespokeSummary?: string;
     monogram?: {
       text: string;
       foil: FoilFinishId;
@@ -213,12 +220,58 @@ export interface OrderRecord {
 
 export type EyewearCameraPreset = 'runway' | 'hinge' | 'optics' | 'exploded';
 export type StudioLightingMood = 'morning' | 'golden' | 'gallery' | 'nocturne';
+export type OpticalLensModeId =
+  | 'clear-ar'
+  | 'photochromic-uv'
+  | 'polarized-amber'
+  | 'midnight-gradient'
+  | 'blue-light-studio';
 
 export interface HeroEyewearConfig {
   frameFinishId: 'raw-titanium' | 'warm-gold' | 'matte-noir';
-  lensTintId: 'smoked-amber' | 'obsidian-polarized' | 'olive-mineral' | 'rose-quartz';
+  lensMode: OpticalLensModeId;
+  uvIndex: number;
   cameraPreset: EyewearCameraPreset;
   lightingMood: StudioLightingMood;
+}
+
+export type FaceShape = 'oval' | 'square' | 'round' | 'heart' | 'diamond';
+export type NoseBridgeProfile = 'low' | 'medium' | 'high';
+export type TempleLengthMm = 138 | 142 | 145 | 150;
+export type PrescriptionTierId = 'plano' | 'single-vision-167' | 'progressive-174';
+export type EngravingTierId = 'none' | 'micro-laser' | 'gold-18k-inlay';
+
+export interface BespokeSizingInput {
+  faceShape: FaceShape;
+  pdMm: number;
+  noseBridge: NoseBridgeProfile;
+  templeLengthMm: TempleLengthMm;
+  prescriptionTier: PrescriptionTierId;
+  engravingTier: EngravingTierId;
+  engravingText: string;
+}
+
+export interface VipLookbookEntry {
+  id: string;
+  certificateId: string;
+  createdAtIso: string;
+  clientLabel: string;
+  productId: string;
+  frameFinishId: HeroEyewearConfig['frameFinishId'];
+  lensMode: OpticalLensModeId;
+  uvIndex: number;
+  vltPercent: number;
+  glareReductionPercent: number;
+  sizing: BespokeSizingInput;
+  fitScore: number;
+  frameBlueprintCode: string;
+  monogram?: {
+    text: string;
+    foil: FoilFinishId;
+  };
+  basePriceUsd: number;
+  bespokeAddonUsd: number;
+  totalPriceUsd: number;
 }
 
 export type StylistOccasion =

@@ -6,6 +6,7 @@ import { AtelierCurtain } from './components/AtelierCurtain';
 import { AtelierManifesto } from './components/AtelierManifesto';
 import { AtelierStylistDrawer } from './components/AtelierStylistDrawer';
 import { BagDrawer } from './components/BagDrawer';
+import { BespokeSizingLab } from './components/BespokeSizingLab';
 import { CatalogSection } from './components/CatalogSection';
 import { CheckoutModal } from './components/CheckoutModal';
 import { CommandSearchModal } from './components/CommandSearchModal';
@@ -21,6 +22,7 @@ import { ProductQuickView } from './components/ProductQuickView';
 import { RecentlyViewedStrip } from './components/RecentlyViewedStrip';
 import { RunwayTicker } from './components/RunwayTicker';
 import { ToastStack } from './components/ToastStack';
+import { VipLookbookDrawer } from './components/VipLookbookDrawer';
 import { WishlistDrawer } from './components/WishlistDrawer';
 import { StoreProvider, useStore } from './context/StoreContext';
 
@@ -115,6 +117,7 @@ const StorefrontShell: React.FC = () => {
       <main>
         <HeroShowcase />
         <RunwayTicker />
+        <BespokeSizingLab />
         <EditorialLookbook />
         <CatalogSection />
         <CraftsmanshipStrip />
@@ -125,6 +128,7 @@ const StorefrontShell: React.FC = () => {
 
       {/* Production Overlays, Concierge Drawers & Comparison Matrix */}
       <AtelierStylistDrawer />
+      <VipLookbookDrawer />
       <LookbookDrawer />
       <ProductQuickView />
       <CommandSearchModal />

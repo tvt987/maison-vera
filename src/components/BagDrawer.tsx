@@ -217,7 +217,11 @@ export const BagDrawer: React.FC = () => {
                               {prod.sku} · {item.size}
                             </span>
                             <span className="font-mono-tech text-xs text-[var(--ink)]">
-                              {formatMoney(prod.priceUsd * item.quantity, currency)}
+                              {formatMoney(
+                                (prod.priceUsd + (item.unitPriceAddonUsd ?? 0)) *
+                                  item.quantity,
+                                currency
+                              )}
                             </span>
                           </div>
                           <h3 className="mt-0.5 truncate font-serif-editorial text-lg text-[var(--ink)]">
@@ -226,6 +230,17 @@ export const BagDrawer: React.FC = () => {
                           <p className="truncate font-mono-tech text-[10px] text-[var(--ink-muted)]">
                             {item.customMeta ?? cw.name[locale]}
                           </p>
+                          {item.bespokeSummary && (
+                            <p
+                              data-testid="bag-item-bespoke"
+                              className="mt-1 border border-[var(--olive)]/40 bg-[var(--olive)]/10 px-1.5 py-0.5 font-mono-tech text-[9.5px] leading-snug text-[var(--olive)]"
+                            >
+                              {item.bespokeSummary}
+                              {item.unitPriceAddonUsd
+                                ? ` (+${formatMoney(item.unitPriceAddonUsd, currency)})`
+                                : ''}
+                            </p>
+                          )}
                           {item.monogram && (
                             <p
                               data-testid="bag-item-monogram"

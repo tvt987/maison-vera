@@ -69,7 +69,9 @@ export function makeCartKey(
   colorwayId: string,
   customMeta?: string,
   monogram?: { text: string; foil: FoilFinishId },
-  stylistBundleId?: string
+  stylistBundleId?: string,
+  bespokeSummary?: string,
+  unitPriceAddonUsd?: number
 ): string {
   return [
     productId,
@@ -78,6 +80,8 @@ export function makeCartKey(
     customMeta ?? '',
     serializeMonogram(monogram),
     stylistBundleId ?? '',
+    bespokeSummary ?? '',
+    unitPriceAddonUsd ? String(unitPriceAddonUsd) : '',
   ].join('::');
 }
 
@@ -89,19 +93,26 @@ export function upsertCartItem(
     colorwayId: string;
     quantity?: number;
     customMeta?: string;
+    unitPriceAddonUsd?: number;
+    bespokeSummary?: string;
     monogram?: { text: string; foil: FoilFinishId };
     stylistBundleId?: string;
   },
   maxStock = 20
 ): CartItem[] {
   const qtyToAdd = Math.max(1, payload.quantity ?? 1);
+  const addon = payload.unitPriceAddonUsd && payload.unitPriceAddonUsd > 0
+    ? round2(payload.unitPriceAddonUsd)
+    : undefined;
   const key = makeCartKey(
     payload.productId,
     payload.size,
     payload.colorwayId,
     payload.customMeta,
     payload.monogram,
-    payload.stylistBundleId
+    payload.stylistBundleId,
+    payload.bespokeSummary,
+    addon
   );
   const existing = items.find((item) => item.key === key);
 
@@ -122,6 +133,8 @@ export function upsertCartItem(
       colorwayId: payload.colorwayId,
       quantity: Math.min(maxStock, qtyToAdd),
       customMeta: payload.customMeta,
+      unitPriceAddonUsd: addon,
+      bespokeSummary: payload.bespokeSummary,
       monogram: payload.monogram,
       stylistBundleId: payload.stylistBundleId,
     },
@@ -195,7 +208,8 @@ export function calculateCartTotals(
   for (const item of items) {
     const product = productsById[item.productId];
     if (!product || item.quantity <= 0) continue;
-    merchandiseSubtotalUsd += product.priceUsd * item.quantity;
+    const effectiveUnitUsd = product.priceUsd + Math.max(0, item.unitPriceAddonUsd ?? 0);
+    merchandiseSubtotalUsd += effectiveUnitUsd * item.quantity;
     totalUnits += item.quantity;
 
     if (item.stylistBundleId) {

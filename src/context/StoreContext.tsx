@@ -6,10 +6,11 @@ import React, {
   useMemo,
   useState,
 } from 'react';
-import { CATALOG, HERO_FRAME_FINISHES, HERO_LENS_TINTS, PRODUCT_BY_ID } from '../data/catalog';
+import { CATALOG, HERO_FRAME_FINISHES, PRODUCT_BY_ID } from '../data/catalog';
 import { t } from '../data/i18n';
 import { LOOKBOOKS } from '../data/lookbooks';
 import { atelierAudio } from '../engines/atelierAudio';
+import { computeBespokeFit, ENGRAVING_TIERS, PRESCRIPTION_TIERS } from '../engines/bespokeSizing';
 import {
   calculateCartTotals,
   evaluatePromoCode,
@@ -19,7 +20,14 @@ import {
 } from '../engines/cartEngine';
 import { toggleCompareList } from '../engines/compareEngine';
 import { resolveActiveMonogram } from '../engines/monogramEngine';
+import { computeOpticalLensTelemetry, getOpticalLensMode } from '../engines/opticalPhysics';
+import {
+  createInitialVipLookbookSeed,
+  createVipLookbookEntry,
+  upsertVipLookbook,
+} from '../engines/vipLookbook';
 import type {
+  BespokeSizingInput,
   CartItem,
   CartTotals,
   Currency,
@@ -32,6 +40,7 @@ import type {
   PromoCodeId,
   PromoEvaluationResult,
   ThemeMode,
+  VipLookbookEntry,
 } from '../types/commerce';
 
 export interface ToastNotice {
@@ -56,7 +65,20 @@ interface StoreContextValue {
   setHeroConfig: React.Dispatch<React.SetStateAction<HeroEyewearConfig>>;
   heroMonogram: MonogramConfig;
   setHeroMonogram: React.Dispatch<React.SetStateAction<MonogramConfig>>;
+  bespokeSizing: BespokeSizingInput;
+  setBespokeSizing: React.Dispatch<React.SetStateAction<BespokeSizingInput>>;
   addHeroEditionToBag: () => void;
+  addBespokeCommissionToBag: (productId?: string) => void;
+  vipLookbook: VipLookbookEntry[];
+  vipLookbookOpen: boolean;
+  setVipLookbookOpen: (open: boolean) => void;
+  saveCurrentBespokeToLookbook: (options?: {
+    productId?: string;
+    clientLabel?: string;
+    openDrawer?: boolean;
+  }) => VipLookbookEntry;
+  removeVipLookbookEntry: (id: string) => void;
+  loadVipLookbookEntry: (entry: VipLookbookEntry) => void;
   cart: CartItem[];
   cartTotals: CartTotals;
   addToBag: (payload: {
@@ -65,6 +87,8 @@ interface StoreContextValue {
     colorwayId: string;
     quantity?: number;
     customMeta?: string;
+    unitPriceAddonUsd?: number;
+    bespokeSummary?: string;
     monogram?: { text: string; foil: FoilFinishId };
     stylistBundleId?: string;
     openDrawer?: boolean;
@@ -125,6 +149,7 @@ const STORAGE_KEYS = {
   wishlist: 'maison_vera_v2_wishlist',
   recent: 'maison_vera_v2_recent',
   prefs: 'maison_vera_v2_prefs',
+  vipLookbook: 'maison_vera_v4_vip_lookbook',
 };
 
 function readStorage<T>(key: string, fallback: T): T {
@@ -156,7 +181,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [heroConfig, setHeroConfig] = useState<HeroEyewearConfig>({
     frameFinishId: 'raw-titanium',
-    lensTintId: 'smoked-amber',
+    lensMode: 'polarized-amber',
+    uvIndex: 6,
     cameraPreset: 'runway',
     lightingMood: 'morning',
   });
@@ -166,6 +192,24 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     text: 'TVT',
     foil: 'gold-24k',
   });
+
+  const [bespokeSizing, setBespokeSizing] = useState<BespokeSizingInput>({
+    faceShape: 'oval',
+    pdMm: 64,
+    noseBridge: 'medium',
+    templeLengthMm: 145,
+    prescriptionTier: 'plano',
+    engravingTier: 'none',
+    engravingText: 'T.V. TINH',
+  });
+
+  const [vipLookbook, setVipLookbook] = useState<VipLookbookEntry[]>(() =>
+    readStorage<VipLookbookEntry[]>(
+      STORAGE_KEYS.vipLookbook,
+      createInitialVipLookbookSeed()
+    )
+  );
+  const [vipLookbookOpen, setVipLookbookOpen] = useState(false);
 
   const [cart, setCart] = useState<CartItem[]>(() =>
     readStorage<CartItem[]>(STORAGE_KEYS.cart, [])
@@ -231,6 +275,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       // ignore
     }
   }, [locale, currency, theme]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        STORAGE_KEYS.vipLookbook,
+        JSON.stringify(vipLookbook)
+      );
+    } catch {
+      // ignore
+    }
+  }, [vipLookbook]);
 
   const dismissToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((item) => item.id !== id));
@@ -345,6 +400,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       colorwayId: string;
       quantity?: number;
       customMeta?: string;
+      unitPriceAddonUsd?: number;
+      bespokeSummary?: string;
       monogram?: { text: string; foil: FoilFinishId };
       stylistBundleId?: string;
       openDrawer?: boolean;
@@ -376,19 +433,131 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const finish =
       HERO_FRAME_FINISHES.find((f) => f.id === heroConfig.frameFinishId) ??
       HERO_FRAME_FINISHES[0];
-    const lens =
-      HERO_LENS_TINTS.find((l) => l.id === heroConfig.lensTintId) ?? HERO_LENS_TINTS[0];
+    const lensSpec = getOpticalLensMode(heroConfig.lensMode);
+    const optics = computeOpticalLensTelemetry(heroConfig.lensMode, heroConfig.uvIndex);
     const activeMono = resolveActiveMonogram(heroMonogram);
 
     addToBag({
       productId: 'mv-eye-01',
       size: 'OS',
       colorwayId: finish.colorwayId,
-      customMeta: `${finish.label[locale]} / ${lens.label[locale]}`,
+      customMeta: `${finish.label[locale]} / ${lensSpec.label[locale]}`,
+      unitPriceAddonUsd: optics.surchargeUsd > 0 ? optics.surchargeUsd : undefined,
+      bespokeSummary: `VLT ${optics.vltPercent}% · Glare -${optics.glareReductionPercent}%${
+        heroConfig.lensMode === 'photochromic-uv' ? ` · UV ${optics.uvIndex}` : ''
+      }`,
       monogram: activeMono,
       openDrawer: true,
     });
   }, [addToBag, heroConfig, heroMonogram, locale]);
+
+  const addBespokeCommissionToBag = useCallback(
+    (productId = 'mv-eye-01') => {
+      const prod = PRODUCT_BY_ID[productId] ?? PRODUCT_BY_ID['mv-eye-01'];
+      const finish =
+        HERO_FRAME_FINISHES.find((f) => f.id === heroConfig.frameFinishId) ??
+        HERO_FRAME_FINISHES[0];
+      const lensSpec = getOpticalLensMode(heroConfig.lensMode);
+      const fit = computeBespokeFit(bespokeSizing, heroConfig.lensMode);
+      const rx = PRESCRIPTION_TIERS.find((r) => r.id === bespokeSizing.prescriptionTier);
+      const eng = ENGRAVING_TIERS.find((e) => e.id === bespokeSizing.engravingTier);
+      const activeMono = resolveActiveMonogram(heroMonogram);
+
+      const cwId =
+        prod.colorways.find((c) => c.id === finish.colorwayId)?.id ??
+        prod.colorways[0].id;
+
+      const engSnippet =
+        bespokeSizing.engravingTier !== 'none'
+          ? ` · ${eng?.label[locale]}: ${fit.sanitizedEngraving || 'SABAE'}`
+          : '';
+
+      addToBag({
+        productId: prod.id,
+        size: 'OS',
+        colorwayId: cwId,
+        customMeta: `${finish.label[locale]} / ${lensSpec.shortLabel[locale]}`,
+        unitPriceAddonUsd: fit.pricing.totalAddonUsd > 0 ? fit.pricing.totalAddonUsd : undefined,
+        bespokeSummary: `CAD ${fit.blueprint.blueprintCode} · PD ${fit.blueprint.pdMm}mm · Fit ${fit.overallFitScore}% · ${
+          rx?.label[locale] ?? 'Plano'
+        }${engSnippet}`,
+        monogram: activeMono,
+        openDrawer: true,
+      });
+    },
+    [addToBag, bespokeSizing, heroConfig, heroMonogram, locale]
+  );
+
+  const saveCurrentBespokeToLookbook = useCallback(
+    (options?: { productId?: string; clientLabel?: string; openDrawer?: boolean }) => {
+      const productId = options?.productId ?? 'mv-eye-01';
+      const prod = PRODUCT_BY_ID[productId] ?? PRODUCT_BY_ID['mv-eye-01'];
+      const activeMono = resolveActiveMonogram(heroMonogram);
+
+      const entry = createVipLookbookEntry({
+        clientLabel: options?.clientLabel,
+        productId: prod.id,
+        basePriceUsd: prod.priceUsd,
+        frameFinishId: heroConfig.frameFinishId,
+        lensMode: heroConfig.lensMode,
+        uvIndex: heroConfig.uvIndex,
+        sizing: bespokeSizing,
+        monogram: activeMono,
+      });
+
+      atelierAudio.playConfirm();
+      setVipLookbook((prev) => upsertVipLookbook(prev, entry));
+      pushToast({
+        title:
+          locale === 'en'
+            ? `Saved to VIP Lookbook — ${entry.certificateId}`
+            : `Đã lưu Hồ Sơ VIP — ${entry.certificateId}`,
+        detail: `${entry.frameBlueprintCode} · Fit ${entry.fitScore}% · VLT ${entry.vltPercent}%`,
+        tone: 'olive',
+      });
+
+      if (options?.openDrawer) {
+        setVipLookbookOpen(true);
+      }
+      return entry;
+    },
+    [bespokeSizing, heroConfig, heroMonogram, locale, pushToast]
+  );
+
+  const removeVipLookbookEntry = useCallback((id: string) => {
+    atelierAudio.playDetent();
+    setVipLookbook((prev) => prev.filter((item) => item.id !== id));
+  }, []);
+
+  const loadVipLookbookEntry = useCallback(
+    (entry: VipLookbookEntry) => {
+      atelierAudio.playShutter();
+      setHeroConfig((prev) => ({
+        ...prev,
+        frameFinishId: entry.frameFinishId,
+        lensMode: entry.lensMode,
+        uvIndex: entry.uvIndex,
+      }));
+      setBespokeSizing({ ...entry.sizing });
+      if (entry.monogram) {
+        setHeroMonogram({
+          enabled: true,
+          text: entry.monogram.text,
+          foil: entry.monogram.foil,
+        });
+      }
+      setVipLookbookOpen(false);
+      pushToast({
+        title:
+          locale === 'en'
+            ? `Loaded Bespoke Study — ${entry.certificateId}`
+            : `Đã nạp cấu hình — ${entry.certificateId}`,
+        detail: `${entry.frameBlueprintCode} · VLT ${entry.vltPercent}%`,
+        tone: 'accent',
+      });
+    },
+    [locale, pushToast]
+  );
 
   const addLookbookBundleToBag = useCallback(
     (
@@ -573,6 +742,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setBagOpen(false);
         setWishlistOpen(false);
         setStylistOpen(false);
+        setVipLookbookOpen(false);
         setCompareModalOpen(false);
       }
     };
@@ -584,6 +754,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     bagOpen ||
       wishlistOpen ||
       stylistOpen ||
+      vipLookbookOpen ||
       searchOpen ||
       quickViewProductId ||
       activeLookbookBundleId ||
@@ -608,7 +779,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setHeroConfig,
     heroMonogram,
     setHeroMonogram,
+    bespokeSizing,
+    setBespokeSizing,
     addHeroEditionToBag,
+    addBespokeCommissionToBag,
+    vipLookbook,
+    vipLookbookOpen,
+    setVipLookbookOpen,
+    saveCurrentBespokeToLookbook,
+    removeVipLookbookEntry,
+    loadVipLookbookEntry,
     cart,
     cartTotals,
     addToBag,

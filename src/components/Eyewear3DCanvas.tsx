@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { HERO_FRAME_FINISHES, HERO_LENS_TINTS } from '../data/catalog';
+import { HERO_FRAME_FINISHES } from '../data/catalog';
+import { computeOpticalLensTelemetry } from '../engines/opticalPhysics';
 import type {
   EyewearCameraPreset,
   HeroEyewearConfig,
@@ -164,7 +164,7 @@ function createTravertineTexture(isDark: boolean): THREE.CanvasTexture {
   return tex;
 }
 
-function createCausticGlowTexture(hexColor: string): THREE.CanvasTexture {
+function createCausticGlowTexture(hexColor: string, vltPercent = 50): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
   canvas.width = 256;
   canvas.height = 256;
@@ -174,16 +174,143 @@ function createCausticGlowTexture(hexColor: string): THREE.CanvasTexture {
     const r = Math.round(col.r * 255);
     const g = Math.round(col.g * 255);
     const b = Math.round(col.b * 255);
+    const vltFactor = 0.28 + (Math.max(10, Math.min(100, vltPercent)) / 100) * 0.42;
 
     const grad = ctx.createRadialGradient(128, 128, 14, 128, 128, 122);
-    grad.addColorStop(0, `rgba(${r},${g},${b},0.48)`);
-    grad.addColorStop(0.42, `rgba(${r},${g},${b},0.22)`);
-    grad.addColorStop(0.7, `rgba(17,17,17,0.12)`);
+    grad.addColorStop(0, `rgba(${r},${g},${b},${vltFactor.toFixed(2)})`);
+    grad.addColorStop(0.42, `rgba(${r},${g},${b},${(vltFactor * 0.46).toFixed(2)})`);
+    grad.addColorStop(0.7, `rgba(17,17,17,0.14)`);
     grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, 256, 256);
   }
   return new THREE.CanvasTexture(canvas);
+}
+
+function createGradientLensTexture(topHex: string, bottomHex: string): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 64;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    const grad = ctx.createLinearGradient(0, 0, 0, 256);
+    grad.addColorStop(0, topHex);
+    grad.addColorStop(0.42, topHex);
+    grad.addColorStop(1, bottomHex);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 64, 256);
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/**
+ * Procedural Warm Parisian Boutique HDRI Studio Scene for PMREMGenerator.
+ * Emissive HDR softbox strips & travertine bounce planes create realistic
+ * specular highlights across brushed Grade-5 titanium and 18K warm gold temples.
+ */
+function buildBoutiqueStudioEnvTexture(
+  pmrem: THREE.PMREMGenerator,
+  mood: StudioLightingMood
+): THREE.WebGLRenderTarget {
+  const envScene = new THREE.Scene();
+  const disposables: { dispose: () => void }[] = [];
+
+  const paletteByMood: Record<
+    StudioLightingMood,
+    {
+      dome: [number, number, number];
+      overhead: [number, number, number];
+      leftStrip: [number, number, number];
+      rightStrip: [number, number, number];
+      backRim: [number, number, number];
+      floorBounce: [number, number, number];
+    }
+  > = {
+    morning: {
+      dome: [0.46, 0.43, 0.38],
+      overhead: [4.2, 3.9, 3.3],
+      leftStrip: [3.4, 2.75, 1.9],
+      rightStrip: [2.8, 2.95, 3.2],
+      backRim: [3.2, 2.6, 1.75],
+      floorBounce: [0.85, 0.78, 0.68],
+    },
+    golden: {
+      dome: [0.4, 0.28, 0.19],
+      overhead: [4.5, 3.25, 1.95],
+      leftStrip: [4.6, 2.55, 1.2],
+      rightStrip: [2.4, 1.95, 1.45],
+      backRim: [4.1, 2.2, 1.05],
+      floorBounce: [0.92, 0.64, 0.42],
+    },
+    gallery: {
+      dome: [0.32, 0.34, 0.38],
+      overhead: [4.8, 4.9, 5.1],
+      leftStrip: [3.6, 3.7, 3.9],
+      rightStrip: [3.2, 3.45, 3.85],
+      backRim: [3.5, 3.6, 3.8],
+      floorBounce: [0.55, 0.57, 0.62],
+    },
+    nocturne: {
+      dome: [0.09, 0.1, 0.14],
+      overhead: [2.4, 2.0, 1.45],
+      leftStrip: [3.8, 2.65, 1.35],
+      rightStrip: [1.45, 2.95, 3.6],
+      backRim: [1.3, 2.6, 3.35],
+      floorBounce: [0.22, 0.2, 0.24],
+    },
+  };
+
+  const p = paletteByMood[mood];
+
+  const makePanel = (
+    w: number,
+    h: number,
+    rgb: [number, number, number],
+    pos: [number, number, number],
+    lookAt: [number, number, number]
+  ) => {
+    const geo = new THREE.PlaneGeometry(w, h);
+    const mat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color().setRGB(rgb[0], rgb[1], rgb[2]),
+      side: THREE.DoubleSide,
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(...pos);
+    mesh.lookAt(...lookAt);
+    envScene.add(mesh);
+    disposables.push(geo, mat);
+  };
+
+  // Ambient architectural boutique shell
+  const domeGeo = new THREE.SphereGeometry(24, 24, 16);
+  const domeMat = new THREE.MeshBasicMaterial({
+    color: new THREE.Color().setRGB(p.dome[0], p.dome[1], p.dome[2]),
+    side: THREE.BackSide,
+  });
+  envScene.add(new THREE.Mesh(domeGeo, domeMat));
+  disposables.push(domeGeo, domeMat);
+
+  // Overhead Parisian salon softbox canopy (dual strips for sharp metallic horizon bands)
+  makePanel(14, 3.6, p.overhead, [0, 10, 1.5], [0, 0, 0]);
+  makePanel(10, 1.8, p.overhead, [0, 9.2, -5.5], [0, 0, 0]);
+
+  // Warm champagne left key softbox + crisp alabaster right kicker for temple reflections
+  makePanel(3.4, 9.5, p.leftStrip, [-10.5, 2.2, 5.2], [0, 0, 0]);
+  makePanel(2.8, 8.5, p.rightStrip, [10.5, 2.8, 4.4], [0, 0, 0]);
+
+  // Rear boutique accent specular ribbon (highlights 5-barrel hinges & chamfered bevels)
+  makePanel(11, 2.2, p.backRim, [0, 3.4, -10.2], [0, 0, 0]);
+
+  // Travertine warm floor reflector
+  makePanel(16, 16, p.floorBounce, [0, -7.5, 0], [0, 0, 0]);
+
+  const rt = pmrem.fromScene(envScene, 0.028);
+  for (const item of disposables) {
+    item.dispose();
+  }
+  return rt;
 }
 
 function buildRimShape(outerScale = 1): THREE.Shape {
@@ -271,8 +398,12 @@ export const Eyewear3DCanvas: React.FC<Eyewear3DCanvasProps> = ({
 
   const sceneRefs = useRef<{
     renderer: THREE.WebGLRenderer | null;
+    scene: THREE.Scene | null;
+    pmrem: THREE.PMREMGenerator | null;
+    envRT: THREE.WebGLRenderTarget | null;
     metal: THREE.MeshPhysicalMaterial | null;
     lens: THREE.MeshPhysicalMaterial | null;
+    lensGradientTex: THREE.CanvasTexture | null;
     plinthMat: THREE.MeshStandardMaterial | null;
     causticMat: THREE.MeshBasicMaterial | null;
     keyLight: THREE.DirectionalLight | null;
@@ -280,8 +411,12 @@ export const Eyewear3DCanvas: React.FC<Eyewear3DCanvasProps> = ({
     fillLight: THREE.HemisphereLight | null;
   }>({
     renderer: null,
+    scene: null,
+    pmrem: null,
+    envRT: null,
     metal: null,
     lens: null,
+    lensGradientTex: null,
     plinthMat: null,
     causticMat: null,
     keyLight: null,
@@ -341,16 +476,16 @@ export const Eyewear3DCanvas: React.FC<Eyewear3DCanvasProps> = ({
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = LIGHTING_MOODS[config.lightingMood].exposure;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
-    container.innerHTML = '';
-    container.appendChild(renderer.domElement);
+    container.replaceChildren(renderer.domElement);
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(32, width / height, 0.1, 100);
     camera.position.set(...CAMERA_PRESETS.runway.camPos);
 
     const pmrem = new THREE.PMREMGenerator(renderer);
-    const envTexture = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-    scene.environment = envTexture;
+    pmrem.compileEquirectangularShader();
+    const initialEnvRT = buildBoutiqueStudioEnvTexture(pmrem, config.lightingMood);
+    scene.environment = initialEnvRT.texture;
 
     const mood = LIGHTING_MOODS[config.lightingMood];
     const keyLight = new THREE.DirectionalLight(mood.keyColor, mood.keyIntensity);
@@ -370,8 +505,10 @@ export const Eyewear3DCanvas: React.FC<Eyewear3DCanvasProps> = ({
     const finish =
       HERO_FRAME_FINISHES.find((f) => f.id === config.frameFinishId) ??
       HERO_FRAME_FINISHES[0];
-    const lensSpec =
-      HERO_LENS_TINTS.find((l) => l.id === config.lensTintId) ?? HERO_LENS_TINTS[0];
+    const optics = computeOpticalLensTelemetry(config.lensMode, config.uvIndex);
+    const initialGradTex = optics.gradientBottomHex
+      ? createGradientLensTexture(optics.hexColor, optics.gradientBottomHex)
+      : null;
 
     const metalMat = new THREE.MeshPhysicalMaterial({
       color: new THREE.Color(finish.metalHex),
@@ -380,16 +517,16 @@ export const Eyewear3DCanvas: React.FC<Eyewear3DCanvasProps> = ({
       roughnessMap: brushedTex,
       bumpMap: brushedTex,
       bumpScale: 0.004,
-      clearcoat: 0.36,
-      clearcoatRoughness: 0.18,
-      envMapIntensity: 1.55,
+      clearcoat: 0.44,
+      clearcoatRoughness: 0.14,
+      envMapIntensity: 1.85,
     });
 
     const accentMetalMat = new THREE.MeshStandardMaterial({
       color: new THREE.Color('#B84A27'),
-      metalness: 0.88,
-      roughness: 0.22,
-      envMapIntensity: 1.4,
+      metalness: 0.9,
+      roughness: 0.2,
+      envMapIntensity: 1.65,
     });
 
     const earSleeveMat = new THREE.MeshPhysicalMaterial({
@@ -401,21 +538,23 @@ export const Eyewear3DCanvas: React.FC<Eyewear3DCanvasProps> = ({
     });
 
     const lensMat = new THREE.MeshPhysicalMaterial({
-      color: new THREE.Color(lensSpec.hex),
-      attenuationColor: new THREE.Color(lensSpec.attenuationHex),
-      attenuationDistance: 1.25,
-      transmission: 0.78,
+      color: new THREE.Color(optics.hexColor),
+      map: initialGradTex,
+      attenuationColor: new THREE.Color(optics.attenuationHex),
+      attenuationDistance: 1.15,
+      transmission: optics.transmission,
       transparent: true,
-      opacity: lensSpec.opacity,
-      roughness: 0.04,
+      opacity: optics.opacity,
+      roughness: 0.035,
       metalness: 0.04,
       ior: 1.52,
       thickness: 0.34,
       clearcoat: 1.0,
-      clearcoatRoughness: 0.03,
-      iridescence: 0.35,
-      iridescenceIOR: 1.3,
-      envMapIntensity: 1.75,
+      clearcoatRoughness: 0.025,
+      iridescence: optics.iridescence,
+      iridescenceIOR: 1.33,
+      specularColor: new THREE.Color(optics.specularSheenHex),
+      envMapIntensity: 1.9,
       side: THREE.DoubleSide,
     });
 
@@ -434,7 +573,7 @@ export const Eyewear3DCanvas: React.FC<Eyewear3DCanvasProps> = ({
       envMapIntensity: 0.6,
     });
 
-    const causticTex = createCausticGlowTexture(lensSpec.hex);
+    const causticTex = createCausticGlowTexture(optics.causticHex, optics.vltPercent);
     const causticMat = new THREE.MeshBasicMaterial({
       map: causticTex,
       transparent: true,
@@ -444,8 +583,12 @@ export const Eyewear3DCanvas: React.FC<Eyewear3DCanvasProps> = ({
 
     sceneRefs.current = {
       renderer,
+      scene,
+      pmrem,
+      envRT: initialEnvRT,
       metal: metalMat,
       lens: lensMat,
+      lensGradientTex: initialGradTex,
       plinthMat,
       causticMat,
       keyLight,
@@ -782,7 +925,8 @@ export const Eyewear3DCanvas: React.FC<Eyewear3DCanvasProps> = ({
       brushedTex.dispose();
       travertineTex.dispose();
       causticTex.dispose();
-      envTexture.dispose();
+      sceneRefs.current.lensGradientTex?.dispose();
+      sceneRefs.current.envRT?.dispose();
       pmrem.dispose();
       mainSlabGeo.dispose();
       upperStepGeo.dispose();
@@ -813,13 +957,12 @@ export const Eyewear3DCanvas: React.FC<Eyewear3DCanvasProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Update PBR titanium finish, lens tint, and caustic tint
+  // Update PBR titanium finish, optical lens physics (including UV photochromic), and caustic tint
   useEffect(() => {
     const finish =
       HERO_FRAME_FINISHES.find((f) => f.id === config.frameFinishId) ??
       HERO_FRAME_FINISHES[0];
-    const lensSpec =
-      HERO_LENS_TINTS.find((l) => l.id === config.lensTintId) ?? HERO_LENS_TINTS[0];
+    const optics = computeOpticalLensTelemetry(config.lensMode, config.uvIndex);
 
     if (sceneRefs.current.metal) {
       sceneRefs.current.metal.color.set(finish.metalHex);
@@ -828,22 +971,53 @@ export const Eyewear3DCanvas: React.FC<Eyewear3DCanvasProps> = ({
       sceneRefs.current.metal.needsUpdate = true;
     }
     if (sceneRefs.current.lens) {
-      sceneRefs.current.lens.color.set(lensSpec.hex);
-      sceneRefs.current.lens.attenuationColor.set(lensSpec.attenuationHex);
-      sceneRefs.current.lens.opacity = lensSpec.opacity;
+      const oldGrad = sceneRefs.current.lensGradientTex;
+      if (optics.gradientBottomHex) {
+        const nextGrad = createGradientLensTexture(
+          optics.hexColor,
+          optics.gradientBottomHex
+        );
+        sceneRefs.current.lens.map = nextGrad;
+        sceneRefs.current.lensGradientTex = nextGrad;
+        sceneRefs.current.lens.color.set('#FFFFFF');
+      } else {
+        sceneRefs.current.lens.map = null;
+        sceneRefs.current.lensGradientTex = null;
+        sceneRefs.current.lens.color.set(optics.hexColor);
+      }
+      oldGrad?.dispose();
+
+      sceneRefs.current.lens.attenuationColor.set(optics.attenuationHex);
+      sceneRefs.current.lens.transmission = optics.transmission;
+      sceneRefs.current.lens.opacity = optics.opacity;
+      sceneRefs.current.lens.iridescence = optics.iridescence;
+      sceneRefs.current.lens.specularColor.set(optics.specularSheenHex);
       sceneRefs.current.lens.needsUpdate = true;
     }
     if (sceneRefs.current.causticMat) {
       const oldMap = sceneRefs.current.causticMat.map;
-      sceneRefs.current.causticMat.map = createCausticGlowTexture(lensSpec.hex);
+      sceneRefs.current.causticMat.map = createCausticGlowTexture(
+        optics.causticHex,
+        optics.vltPercent
+      );
       sceneRefs.current.causticMat.needsUpdate = true;
       oldMap?.dispose();
     }
-  }, [config.frameFinishId, config.lensTintId]);
+  }, [config.frameFinishId, config.lensMode, config.uvIndex]);
 
-  // Update real-time Studio Lighting Mood
+  // Update real-time Studio Lighting Mood + Procedural PMREM Boutique HDRI
   useEffect(() => {
     const mood = LIGHTING_MOODS[config.lightingMood];
+    if (sceneRefs.current.scene && sceneRefs.current.pmrem) {
+      const oldRT = sceneRefs.current.envRT;
+      const nextRT = buildBoutiqueStudioEnvTexture(
+        sceneRefs.current.pmrem,
+        config.lightingMood
+      );
+      sceneRefs.current.scene.environment = nextRT.texture;
+      sceneRefs.current.envRT = nextRT;
+      oldRT?.dispose();
+    }
     if (sceneRefs.current.keyLight) {
       sceneRefs.current.keyLight.color.set(mood.keyColor);
       sceneRefs.current.keyLight.intensity = mood.keyIntensity;
@@ -878,8 +1052,7 @@ export const Eyewear3DCanvas: React.FC<Eyewear3DCanvasProps> = ({
     const finish =
       HERO_FRAME_FINISHES.find((f) => f.id === config.frameFinishId) ??
       HERO_FRAME_FINISHES[0];
-    const lensSpec =
-      HERO_LENS_TINTS.find((l) => l.id === config.lensTintId) ?? HERO_LENS_TINTS[0];
+    const optics = computeOpticalLensTelemetry(config.lensMode, config.uvIndex);
     return (
       <div className="flex h-full w-full items-center justify-center p-8">
         <svg viewBox="0 0 540 280" className="w-full max-w-[480px]" aria-label="VÉRA-01 Monolith Frame">
@@ -893,15 +1066,15 @@ export const Eyewear3DCanvas: React.FC<Eyewear3DCanvasProps> = ({
           <line x1="90" y1="88" x2="450" y2="88" stroke="url(#fallback-metal)" strokeWidth="8" />
           <polygon
             points="92,102 128,82 224,82 252,104 242,168 206,194 128,194 96,164"
-            fill={lensSpec.hex}
-            fillOpacity={lensSpec.opacity}
+            fill={optics.hexColor}
+            fillOpacity={optics.opacity}
             stroke="url(#fallback-metal)"
             strokeWidth="9"
           />
           <polygon
             points="288,104 316,82 412,82 448,102 444,164 412,194 334,194 298,168"
-            fill={lensSpec.hex}
-            fillOpacity={lensSpec.opacity}
+            fill={optics.hexColor}
+            fillOpacity={optics.opacity}
             stroke="url(#fallback-metal)"
             strokeWidth="9"
           />
@@ -911,6 +1084,8 @@ export const Eyewear3DCanvas: React.FC<Eyewear3DCanvasProps> = ({
     );
   }
 
+  const liveOptics = computeOpticalLensTelemetry(config.lensMode, config.uvIndex);
+
   return (
     <div className="relative h-full w-full">
       <div
@@ -919,6 +1094,27 @@ export const Eyewear3DCanvas: React.FC<Eyewear3DCanvasProps> = ({
         className="h-full w-full select-none"
         aria-label="Interactive 3D VÉRA-01 Monolith Titanium Eyewear Showcase"
       />
+
+      {/* Live PMREM Studio HDRI & Optical Physics Readout Pill */}
+      <div
+        data-testid="3d-optical-hud"
+        className="pointer-events-none absolute bottom-4 left-5 z-10 flex flex-wrap items-center gap-2 border border-[var(--hairline-strong)] bg-[var(--surface)]/90 px-3 py-1.5 font-mono-tech text-[9.5px] uppercase tracking-[0.14em] text-[var(--ink)] backdrop-blur-md sm:left-7"
+      >
+        <span className="h-2 w-2 rounded-full bg-[var(--accent)]" />
+        <span>PMREM HDRI</span>
+        <span className="opacity-35">|</span>
+        <span>VLT {liveOptics.vltPercent}%</span>
+        <span className="opacity-35">|</span>
+        <span>GLARE -{liveOptics.glareReductionPercent}%</span>
+        <span className="opacity-35">|</span>
+        <span className="text-[var(--accent)]">{liveOptics.filterCategory}</span>
+        {config.lensMode === 'photochromic-uv' && (
+          <>
+            <span className="opacity-35">|</span>
+            <span>UV {liveOptics.uvIndex}/11</span>
+          </>
+        )}
+      </div>
 
       {/* Exploded Assembly Floating Engineering Callout Badges */}
       {config.cameraPreset === 'exploded' && (
