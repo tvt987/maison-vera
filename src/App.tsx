@@ -12,7 +12,6 @@ import { CheckoutModal } from './components/CheckoutModal';
 import { CommandSearchModal } from './components/CommandSearchModal';
 import { CompareDockModal } from './components/CompareDockModal';
 import { CraftsmanshipStrip } from './components/CraftsmanshipStrip';
-import { CustomCursor } from './components/CustomCursor';
 import { EditorialLookbook } from './components/EditorialLookbook';
 import { HeroShowcase } from './components/HeroShowcase';
 import { LookbookDrawer } from './components/LookbookDrawer';
@@ -112,7 +111,6 @@ const StorefrontShell: React.FC = () => {
   return (
     <div className="min-h-screen bg-[var(--bg)] text-[var(--ink)]">
       <AtelierCurtain />
-      <CustomCursor />
       <Navbar />
       <main>
         <HeroShowcase />
