@@ -1,6 +1,6 @@
-# MAISON VÉRA v6.0 — Full-Stack `.NET 10` Haute Couture 3D Eyewear, Polarized Glare Physics & Optical Decentration Monorepo
+# MAISON VÉRA v7.0 — Full-Stack `.NET 10` Live 3D Virtual Try-On Studio, Webcam Face-Tracking AR & Optical Glare Lab Monorepo
 
-Full-stack luxury architectural eyewear & optical engineering platform combining a **React 19 + Three.js PMREM HDRI 3D Studio**, an **Interactive Split-Screen Polarization & Anti-Reflective (AR) Glare Physics Lab**, a **Pupillary-Distance (PD) Optical Decentration & Prentice's Rule Prism Calculator**, an **Optical Rx Sagitta & Spectral Transmittance Lab**, a **Millimeter Bespoke Sizing Lab**, and a **Clean Architecture `.NET 10` Optical & Private Atelier API** with Docker Compose deployment (`Nginx` + `.NET 10` + `PostgreSQL 16` + `Redis 7`).
+Full-stack luxury architectural eyewear & optical engineering platform combining an interactive **60fps Three.js Live 3D Virtual Try-On Studio** (with procedural Parisian Alabaster Sculpted Bust, 4 anthropometric Face Archetypes, real-time UV `0→11` Photochromic Darkening, Polarized Riviera Glare Split Curtain & 1-Click `1200×800` Editorial Portrait PNG export), **Privacy-First On-Device Webcam AR**, **Sculptural 3D PMREM HDRI CAD**, **Split-Screen Polarization & AR Glare Physics Lab**, **Pupillary-Distance (PD) Optical Decentration & Prentice's Rule Prism Calculator**, **Optical Rx Sagitta Lab**, and a **Clean Architecture `.NET 10` Optical & Private Atelier API**.
 
 Designed and engineered by **Truong Van Tinh (`tvt987`)**.
 
@@ -47,7 +47,16 @@ flowchart LR
 
 ---
 
-## Core v6.0 Full-Stack Capabilities
+## Core v7.0 Full-Stack Capabilities
+
+### 0. Live 3D Virtual Try-On Studio, Webcam Face-Tracking AR & Photochromic UV Lab (`virtualTryOnEngine.ts` + `sculptedBustGeometry.ts` + `Eyewear3DCanvas.tsx`)
+- **4-Mode Primary 3D Eyewear Stage** (`[3D VIRTUAL TRY-ON | SCULPTURAL 3D CAD | WEBCAM AR | EDITORIAL CAMPAIGN]`):
+  - **3D Virtual Try-On Studio**: Procedural museum-grade **Parisian Alabaster / Roman Travertine Architectural Bust** (96×80 smooth analytical $C^\infty$ sculpted geometry) wearing the exact live-configured Grade-5 Titanium eyewear (frame finish, optical lens mode, photochromic UV darkening, Sabae SKU `46/48/51/54 mm`, and temple foil monogram).
+  - **4 Anthropometric Face Archetypes** (`OVAL`, `ANGULAR`, `HEART`, `ROUND`) morphing cranial/jaw/brow/nose-bridge geometry in real time (`132–148 mm` temple width, `16–22 mm` bridge height, cheek clearance) while computing deterministic **Atelier Fit Score (`0–100%`)**, **Temple Clearance (mm)**, and **Bridge Comfort Verdict**.
+  - **6-DOF Head Pose Smoothing (`EMA Kalman-like filter`)**: Direct pointer drag smoothly rotates head pose (`Yaw ±55° / Pitch ±22°`) with spring-damped inertia and dead-zone micro-jitter suppression.
+  - **Real-Time Photochromic UV Darkening (`0 → 11`) & Polarized Riviera Glare Split**: Scrubbing UV visibly darkens the 3D CR-39 lenses from `88%` crystal clear (`CAT 0`) to `14%` deep sun tint (`CAT 3`, `99.9% UV400`), paired with an interactive draggable **Malus's Law `cos²θ` Polarized Glare Curtain (`-99.4%` at `90°`)**.
+  - **1-Click Parisian Editorial Try-On Portrait PNG (`1200×800`)**: Lazy-loaded Canvas compositor (`tryOnExport.ts`) exports a framed archival gallery portrait card with live 3D/AR capture and full fit & optical telemetry.
+  - **Privacy-First On-Device Webcam AR**: Requests `getUserMedia` strictly on user click, overlays transparent 3D glasses over mirrored live video using lightweight zero-dependency on-device YCbCr face-region pose estimation + micro-align nudges, with an elegant Parisian Studio Fallback when no camera is attached.
 
 ### 1. Split-Screen Polarization & Anti-Reflective (AR) Glare Physics Lab (`glareOpticsEngine.ts` + lazy `PolarizedGlareLab.tsx`)
 - Models real optical physics across **3 lighting environments** using **Brewster's Angle** ($\theta_B = \arctan(n_2/n_1)$) and **Malus's Law** ($I(\theta) = I_{\min} + (I_{\max} - I_{\min})\cos^2\theta$):
@@ -80,14 +89,14 @@ flowchart LR
 
 ---
 
-## Verified v6.0 Quality & Performance Metrics
+## Verified v7.0 Quality & Performance Metrics
 
 | Verification Gate | Result | Highlights |
 | :--- | :--- | :--- |
-| **Frontend Unit Tests (`npm test`)** | **105 / 105 PASS** (`15` suites) | `81` v5.0 + `12` `glareOpticsEngine.test.ts` + `12` `decentrationEngine.test.ts` |
+| **Frontend Unit Tests (`npm test`)** | **133 / 133 PASS** (`16` suites) | `105` v6.0 + `28` `virtualTryOnEngine.test.ts` (Face Archetypes, Photochromic UV `88%→14%`, Malus `cos²θ` Glare Shield, 6-DOF EMA Pose Filter & On-Device Face Estimator) |
 | **Backend Integration Tests (`dotnet test`)** | **48 / 48 PASS** (`0` warnings) | `.NET 10` xUnit + `WebApplicationFactory<Program>` (`31` v5.0 + `17` `DecentrationGlareEndpointTests`) |
-| **Main Entry Bundle (`npm run build`)** | **`137.31 kB`** (`42.31 kB` gz) | Strictly `< 145 kB` budget; `three` (`503.60 kB`), `PolarizedGlareLab` (`28.96 kB`), `OpticalRxLab` (`31.88 kB`) all lazy-split |
-| **Playwright Headless E2E** | **PASS (`1440x900` & `390x844`)** | `0` console errors, `0` page errors, `0` failed requests, `0px` horizontal overflow; verified `12.0% -> 48.5% (0.4% AR) -> 99.4%` glare physics, Malus `45° = 70.7%`, split-screen handle, PD `58mm`/`73mm` Prentice's Rule & 46mm Panto vs 54mm Aviator verdicts, 3D PMREM stage & Strict CSP |
+| **Main Entry Bundle (`npm run build`)** | **`94.93 kB`** (`24.42 kB` gz) | Strictly `< 100 kB` entry budget; `three` (`505.03 kB`), `Eyewear3DCanvas` (`44.16 kB`), `tryOnExport` (`5.28 kB`), `data` (`62.90 kB`), `PolarizedGlareLab` & `OpticalRxLab` cleanly split |
+| **Playwright Headless E2E** | **PASS (`1440x900` & `390x844`)** | `0` console errors, `0` page errors, `0` failed requests, `0px` horizontal overflow; verified 3D Virtual Try-On bust & Fit Score, `1200×800` Portrait PNG download (`615 kB`), UV `11` (`VLT 14% · CAT 3`) + Polarized `-99.4%` Glare Split, `ANGULAR` face + `18K Warm Gold` + `3/4` head rotation, Webcam AR Parisian Studio Fallback, Sculptural 3D CAD Exploded view & Strict CSP |
 
 ---
 

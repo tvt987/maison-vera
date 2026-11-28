@@ -106,8 +106,13 @@ export const I18N = {
     heroAddEdition: 'Add Hero Edition to Bag',
     heroExploreCollection: 'Explore 12-Piece Archive',
     heroOpenStylist: 'AI Atelier Stylist (-12%)',
-    heroModeCampaign: 'Campaign Editorial',
-    heroMode3d: '3D Interactive CAD',
+    heroModeTryOn: '3D Virtual Try-On',
+    heroMode3d: 'Sculptural 3D CAD',
+    heroModeAr: 'Webcam AR',
+    heroModeCampaign: 'Editorial Campaign',
+    heroCapturePortrait: 'Capture Portrait PNG',
+    heroTryOnDragHint: 'DRAG HEAD TO ROTATE (±55° YAW) · MORPH FACE SHAPE · SCRUB UV 0→11 & GLARE',
+    heroArHint: '100% ON-DEVICE PRIVACY-FIRST CAMERA TRACKING · ZERO CLOUD UPLOAD',
     heroCampaignTelemetry: 'SABAE GRADE-5 TI · CR-39 AMBER · IOR 1.52',
     heroCampaignCaption: 'HASSELBLAD MEDIUM FORMAT · FLUTED ROMAN TRAVERTINE',
     heroDragHint: 'DRAG 3D TO ORBIT · SWITCH PRESETS & STUDIO LIGHTING',
@@ -321,7 +326,7 @@ export const I18N = {
     atelierTitle: 'Built to Endure Beyond Seasonal Cycles.',
     atelierBody:
       'Every MAISON VÉRA object is fabricated in small numbered batches across specialist ateliers — Sabae for Grade-5 titanium eyewear, Biella and Paris for cantilevered tailoring, and Florence/Ubrique for saddle-stitched leather.',
-    footerRights: 'MAISON VÉRA v6.0 Full-Stack .NET 10 Haute Couture Eyewear, Polarized Glare & Optical Decentration Atelier · Crafted by Truong Van Tinh (tvt987)',
+    footerRights: 'MAISON VÉRA v7.0 Full-Stack .NET 10 Live 3D Virtual Try-On Studio, Webcam AR, Photochromic UV & Polarized Glare Atelier · Crafted by Truong Van Tinh (tvt987)',
   },
   vi: {
     brandSub: 'PARIS · SABAE · LƯU TRỮ',
@@ -409,8 +414,13 @@ export const I18N = {
     heroAddEdition: 'Thêm Phiên Bản Hero Vào Giỏ',
     heroExploreCollection: 'Khám Phá 12 Tuyệt Tác',
     heroOpenStylist: 'Stylist Atelier AI (-12%)',
-    heroModeCampaign: 'Ảnh Chiến Dịch',
+    heroModeTryOn: 'Thử Kính 3D Trực Tiếp',
     heroMode3d: 'Mô Hình 3D CAD',
+    heroModeAr: 'Webcam AR',
+    heroModeCampaign: 'Ảnh Chiến Dịch',
+    heroCapturePortrait: 'Xuất Ảnh PNG',
+    heroTryOnDragHint: 'KÉO XOAY TƯỢNG ĐẦU (±55°) · ĐỔI DÁNG MẶT · KÉO UV 0→11 & LỌC PHÂN CỰC',
+    heroArHint: 'THEO DÕI KHUÔN MẶT NỘI BỘ 100% TRÊN THIẾT BỊ · KHÔNG TẢI LÊN MÁY CHỦ',
     heroCampaignTelemetry: 'TITAN CẤP 5 SABAE · CR-39 HỔ PHÁCH · IOR 1.52',
     heroCampaignCaption: 'HASSELBLAD MEDIUM FORMAT · ĐÁ TRAVERTINE LA MÃ',
     heroDragHint: 'KÉO 3D ĐỂ XOAY · CHỌN GÓC MÁY & ÁNH SÁNG STUDIO',
@@ -624,7 +634,7 @@ export const I18N = {
     atelierTitle: 'Được Tạo Ra Để Bền Vững Vượt Thời Gian.',
     atelierBody:
       'Mỗi tác phẩm MAISON VÉRA được sản xuất giới hạn theo lô đánh số tại các xưởng chuyên biệt — Sabae cho kính titan cấp 5, Biella và Paris cho nghệ thuật cắt may hẫng, cùng Florence/Ubrique cho đồ da khâu yên ngựa.',
-    footerRights: 'MAISON VÉRA v6.0 Full-Stack .NET 10 Haute Couture Eyewear, Phân Cực Chống Chói & Quang Học Lệch Tâm · Chế tác bởi Trương Văn Tình (tvt987)',
+    footerRights: 'MAISON VÉRA v7.0 Full-Stack .NET 10 Studio Thử Kính 3D, Webcam AR, Đổi Màu UV & Phân Cực Chống Chói · Chế tác bởi Trương Văn Tình (tvt987)',
   },
 } as const;
 

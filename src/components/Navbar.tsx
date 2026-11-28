@@ -55,10 +55,10 @@ export const Navbar: React.FC = () => {
           <span>{copy.brandSub}</span>
           <span className="hidden md:inline">
             {locale === 'en'
-              ? 'PMREM 3D STUDIO · POLARIZED GLARE LAB · RX SAGITTA & DECENTRATION · .NET 10 API'
-              : 'STUDIO 3D PMREM · PHÂN CỰC CHỐNG CHÓI · RX SAGITTA & LỆCH TÂM PD · API .NET 10'}
+              ? '3D VIRTUAL TRY-ON · WEBCAM AR · PHOTOCHROMIC UV · POLARIZED GLARE · .NET 10 API'
+              : 'THỬ KÍNH 3D · WEBCAM AR · ĐỔI MÀU UV · PHÂN CỰC CHỐNG CHÓI · API .NET 10'}
           </span>
-          <span className="text-[var(--accent)]">AW26 · V6.0 ATELIER</span>
+          <span className="text-[var(--accent)]">AW26 · V7.0 ATELIER</span>
         </div>
       </div>
 
